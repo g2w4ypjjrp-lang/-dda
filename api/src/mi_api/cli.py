@@ -6,12 +6,15 @@
   parolasını belirler, iki adımlı doğrulamayı açar, sonra yönetim paneline girebilir. Sistemde
   zaten aktif bir SUPER_ADMIN varsa reddedilir (sonrakiler panelden atanır).
 * ``audit-verify``: denetim kaydı zincirini doğrular.
+* ``football-sync JOB [--date] [--fixture-id] [--competition-id] [--season]``: futbol verisi işini
+  elle çalıştırır (ör. tarihsel veri yükleme). Sonuç ``football_sync_runs``'a da yazılır.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -21,6 +24,7 @@ from sqlalchemy import select, text
 from mi_api import audit
 from mi_api.config import Settings
 from mi_api.db import Database
+from mi_api.football.sync import JOBS
 from mi_api.migrate import upgrade
 from mi_api.models import EmailToken, User, UserRole
 from mi_api.security import new_token, token_digest
@@ -93,6 +97,12 @@ def main(argv: list[str] | None = None) -> None:
     boot.add_argument("--email", required=True)
     boot.add_argument("--name", required=True)
     sub.add_parser("audit-verify", help="Denetim kaydı zincirini doğrula")
+    fsync = sub.add_parser("football-sync", help="Futbol verisi işini elle çalıştır")
+    fsync.add_argument("job", choices=JOBS)
+    fsync.add_argument("--date")
+    fsync.add_argument("--fixture-id", type=int)
+    fsync.add_argument("--competition-id", type=int)
+    fsync.add_argument("--season", type=int)
     args = parser.parse_args(argv)
     settings = Settings()
 
@@ -111,6 +121,25 @@ def main(argv: list[str] | None = None) -> None:
         else:
             print(f"Denetim kaydı zinciri {broken} numaralı kayıtta kırık!", file=sys.stderr)
             raise SystemExit(2)
+    elif args.command == "football-sync":
+        from mi_api.logs import configure_logging
+        from mi_api.worker import run_job
+
+        configure_logging(settings.log_level, json_output=settings.log_json)
+        params = {
+            k: v
+            for k, v in {
+                "date": args.date,
+                "fixture_id": args.fixture_id,
+                "competition_id": args.competition_id,
+                "season": args.season,
+            }.items()
+            if v is not None
+        }
+        result = asyncio.run(run_job(args.job, params, trigger="cli"))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if result["status"] == "failed":
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

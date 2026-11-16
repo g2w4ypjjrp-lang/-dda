@@ -103,8 +103,10 @@ def make_settings(dsn: str, **overrides: Any) -> Settings:
 async def app_factory(dsn: str, clock: Clock) -> AsyncIterator[Any]:
     apps: list[Any] = []
 
-    def factory(**overrides: Any) -> Any:
-        app = create_app(make_settings(dsn, **overrides), clock=clock)
+    def factory(*, football_transport: Any = None, **overrides: Any) -> Any:
+        app = create_app(
+            make_settings(dsn, **overrides), clock=clock, football_transport=football_transport
+        )
         apps.append(app)
         return app
 

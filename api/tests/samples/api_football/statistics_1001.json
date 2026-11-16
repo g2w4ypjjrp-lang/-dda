@@ -1,0 +1,132 @@
+{
+ "get": "fixtures/statistics",
+ "parameters": {
+  "fixture": "1001"
+ },
+ "errors": [],
+ "results": 2,
+ "paging": {
+  "current": 1,
+  "total": 1
+ },
+ "response": [
+  {
+   "team": {
+    "id": 501,
+    "name": "Örnek FK",
+    "logo": null
+   },
+   "statistics": [
+    {
+     "type": "Shots on Goal",
+     "value": 6
+    },
+    {
+     "type": "Total Shots",
+     "value": 14
+    },
+    {
+     "type": "Ball Possession",
+     "value": "58%"
+    },
+    {
+     "type": "Corner Kicks",
+     "value": 7
+    },
+    {
+     "type": "Fouls",
+     "value": 11
+    },
+    {
+     "type": "Yellow Cards",
+     "value": 2
+    },
+    {
+     "type": "Red Cards",
+     "value": null
+    },
+    {
+     "type": "Offsides",
+     "value": 3
+    },
+    {
+     "type": "Total passes",
+     "value": 512
+    },
+    {
+     "type": "Passes accurate",
+     "value": 441
+    },
+    {
+     "type": "Goalkeeper Saves",
+     "value": 2
+    },
+    {
+     "type": "expected_goals",
+     "value": "1.85"
+    },
+    {
+     "type": "Blocked Shots",
+     "value": 3
+    }
+   ]
+  },
+  {
+   "team": {
+    "id": 502,
+    "name": "Test Spor",
+    "logo": null
+   },
+   "statistics": [
+    {
+     "type": "Shots on Goal",
+     "value": 3
+    },
+    {
+     "type": "Total Shots",
+     "value": 8
+    },
+    {
+     "type": "Ball Possession",
+     "value": "42%"
+    },
+    {
+     "type": "Corner Kicks",
+     "value": 2
+    },
+    {
+     "type": "Fouls",
+     "value": 14
+    },
+    {
+     "type": "Yellow Cards",
+     "value": 3
+    },
+    {
+     "type": "Red Cards",
+     "value": 1
+    },
+    {
+     "type": "Offsides",
+     "value": 1
+    },
+    {
+     "type": "Total passes",
+     "value": 371
+    },
+    {
+     "type": "Passes accurate",
+     "value": 290
+    },
+    {
+     "type": "Goalkeeper Saves",
+     "value": 4
+    },
+    {
+     "type": "expected_goals",
+     "value": "0.74"
+    }
+   ]
+  }
+ ]
+}

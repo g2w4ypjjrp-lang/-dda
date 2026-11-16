@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # TOTP sırlarını şifreleyen AES-256 anahtarı (base64, 32 bayt). Yoksa MFA kurulamaz.
     secret_kek: SecretStr | None = None
 
+    # Futbol veri sağlayıcısı (Faz 2). "none": sağlayıcı yok; veri uydurulmaz, arayüz bunu gösterir.
+    football_provider: Literal["none", "api_football", "football_data"] = "none"
+    football_api_key: SecretStr | None = None
+    # Yerel kota bütçesi (sağlayıcı paketine göre ayarlanır). Düşük öncelikli işler günlük bütçenin
+    # son %reserve_pct'sini kullanamaz; o pay canlı maç ve günün fikstürü için ayrılır.
+    football_daily_budget: int = Field(default=100, ge=1)
+    football_minute_budget: int = Field(default=10, ge=1)
+    football_reserve_pct: int = Field(default=20, ge=0, le=90)
+
     log_level: str = "INFO"
     log_json: bool = True
 
@@ -58,6 +67,9 @@ class Settings(BaseSettings):
         kek = self.secret_kek_bytes()
         if kek is not None and len(kek) != 32:
             raise ValueError("MI_SECRET_KEK base64 kodlu 32 bayt olmalı")
+        key = self.football_api_key.get_secret_value() if self.football_api_key else ""
+        if self.football_provider != "none" and not key.strip():
+            raise ValueError("MI_FOOTBALL_PROVIDER seçiliyken MI_FOOTBALL_API_KEY zorunlu")
         if not self.is_production_like:
             return self
         problems: list[str] = []

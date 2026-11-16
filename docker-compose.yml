@@ -42,7 +42,10 @@ services:
 
   api:
     build: ./api
-    environment: *api-env
+    environment:
+      <<: *api-env
+      MI_FOOTBALL_PROVIDER: ${MI_FOOTBALL_PROVIDER:-none}
+      MI_FOOTBALL_API_KEY: ${MI_FOOTBALL_API_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -50,6 +53,28 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
+
+  # Futbol verisi işçisi ve zamanlayıcısı (Faz 2). Sağlayıcı anahtarı yoksa işler "skipped" olur.
+  worker:
+    build: ./api
+    command: ["celery", "-A", "mi_api.worker", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment: &worker-env
+      <<: *api-env
+      MI_FOOTBALL_PROVIDER: ${MI_FOOTBALL_PROVIDER:-none}
+      MI_FOOTBALL_API_KEY: ${MI_FOOTBALL_API_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: ./api
+    command: ["celery", "-A", "mi_api.worker", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    environment: *worker-env
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   pgdata:

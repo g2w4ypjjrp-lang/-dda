@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,6 +21,8 @@ from mi_api.config import Settings
 from mi_api.context import Clock, Services, utcnow
 from mi_api.db import Database
 from mi_api.errors import install_error_handlers
+from mi_api.football.api import create_football_router
+from mi_api.football.runtime import FootballRuntime
 from mi_api.guards import RequestGuard
 from mi_api.logs import RequestContext
 from mi_api.migrate import current_revision, head_revision
@@ -31,6 +34,7 @@ def create_app(
     *,
     clock: Clock = utcnow,
     limiter: Limiter | None = None,
+    football_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     cfg = settings or Settings()
     db = Database(cfg.database_url.get_secret_value())
@@ -56,6 +60,9 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.services = services
+    app.state.football = FootballRuntime(
+        cfg, clock=clock, redis=redis, transport=football_transport
+    )
     app.add_middleware(RequestGuard, web_origins=cfg.web_origins, admin_origins=cfg.admin_origins)
     app.add_middleware(
         CORSMiddleware,
@@ -68,6 +75,7 @@ def create_app(
     install_error_handlers(app)
     app.include_router(create_auth_router())
     app.include_router(create_admin_router())
+    app.include_router(create_football_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

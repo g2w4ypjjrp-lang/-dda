@@ -1,0 +1,82 @@
+{
+ "get": "fixtures",
+ "parameters": {
+  "live": "all"
+ },
+ "errors": [],
+ "results": 1,
+ "paging": {
+  "current": 1,
+  "total": 1
+ },
+ "response": [
+  {
+   "fixture": {
+    "id": 1002,
+    "referee": "Hakem Örnek",
+    "timezone": "UTC",
+    "date": "2026-11-16T22:30:00+00:00",
+    "timestamp": 0,
+    "periods": {
+     "first": null,
+     "second": null
+    },
+    "venue": {
+     "id": 70,
+     "name": "Örnek Stadı",
+     "city": "İstanbul"
+    },
+    "status": {
+     "long": "x",
+     "short": "2H",
+     "elapsed": 67
+    }
+   },
+   "league": {
+    "id": 9001,
+    "name": "Örnek Lig",
+    "country": "Türkiye",
+    "logo": "https://example.invalid/l.png",
+    "flag": "https://example.invalid/tr.svg",
+    "season": 2026,
+    "round": "Regular Season - 12"
+   },
+   "teams": {
+    "home": {
+     "id": 503,
+     "name": "Deneme SK",
+     "logo": "https://example.invalid/t503.png",
+     "winner": null
+    },
+    "away": {
+     "id": 504,
+     "name": "Kurgu United",
+     "logo": "https://example.invalid/t504.png",
+     "winner": null
+    }
+   },
+   "goals": {
+    "home": 0,
+    "away": 1
+   },
+   "score": {
+    "halftime": {
+     "home": 0,
+     "away": 0
+    },
+    "fulltime": {
+     "home": null,
+     "away": null
+    },
+    "extratime": {
+     "home": null,
+     "away": null
+    },
+    "penalty": {
+     "home": null,
+     "away": null
+    }
+   }
+  }
+ ]
+}

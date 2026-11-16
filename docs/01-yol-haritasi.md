@@ -19,7 +19,7 @@ güvenlik → test → hata düzeltme → rapor. Bir faz, kabul kriterleri **ger
 
 ```
 api/        FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 + Redis   (Faz 1-)
-worker/     Celery + Celery Beat: veri çekme, tahmin, sonuçlandırma     (Faz 2-)
+            (Celery işçisi ve Beat programı api paketinde: mi_api.worker — Faz 2)
 ml/         Özellik mühendisliği, modeller, Optuna, kalibrasyon, backtest (Faz 3-)
 web/        Next.js + TypeScript + Tailwind + shadcn/ui + TanStack Query (Faz 7-)
 deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştirme için)
@@ -36,8 +36,8 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 | # | Faz | Durum |
 |---|---|---|
 | 1 | Teknik temel: mimari, veritabanı, kimlik doğrulama, MFA, RBAC, denetim kaydı, loglama | ✅ Tamamlandı ([rapor](02-faz1-raporu.md)) |
-| 2 | Futbol verileri: sağlayıcı uyarlayıcısı, lig/takım/maç/istatistik, canlı veri, veri kalitesi | ⏭️ Sıradaki — M-G1 bekliyor |
-| 3 | AI: özellik mühendisliği, modeller, Optuna, ensemble, kalibrasyon, belirsizlik, backtest | ⏳ |
+| 2 | Futbol verileri: sağlayıcı uyarlayıcısı, lig/takım/maç/istatistik, canlı veri, veri kalitesi | ✅ Altyapı tamamlandı ([rapor](03-faz2-raporu.md)); gerçek veri M-G1 ile |
+| 3 | AI: özellik mühendisliği, modeller, Optuna, ensemble, kalibrasyon, belirsizlik, backtest | ⏭️ Sıradaki |
 | 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ⏳ |
 | 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ⏳ |
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ⏳ |
@@ -49,7 +49,9 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 ### Faz 1 — Teknik temel ✅
 Çıktılar ve test sonuçları: [02-faz1-raporu.md](02-faz1-raporu.md).
 
-### Faz 2 — Futbol verileri
+### Faz 2 — Futbol verileri ✅ (altyapı)
+Uygulanan: [03-faz2-raporu.md](03-faz2-raporu.md). Aşağıdaki plan metni kayıt için korunmuştur.
+
 * `Provider` arayüzü (fikstür, sonuç, puan durumu, kadro, sakatlık, istatistik, oyuncu, xG) ve
   uyarlayıcılar. Her uyarlayıcı kayıtlı yanıtlarla (fixture dosyaları) test edilir.
 * Şema: `countries, competitions, seasons, teams, venues, players, coaches, fixtures,
