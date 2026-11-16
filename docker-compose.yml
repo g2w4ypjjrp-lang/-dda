@@ -1,0 +1,55 @@
+# Yerel geliştirme yığını: PostgreSQL 16 + Redis 7 + API.
+# Kullanım:  cp .env.example .env  (değerleri doldurun)  →  docker compose up --build
+# Üretim için kullanılmaz (üretim: yönetilen PostgreSQL/Redis, TLS, gizli bilgi deposu — M-G3).
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mi
+      POSTGRES_PASSWORD: ${MI_DB_PASSWORD:?MI_DB_PASSWORD .env dosyasında tanımlanmalı}
+      POSTGRES_DB: mi
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mi"]
+      interval: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  migrate:
+    build: ./api
+    command: ["mi-admin", "migrate"]
+    environment: &api-env
+      MI_ENVIRONMENT: development
+      MI_DATABASE_URL: postgresql://mi:${MI_DB_PASSWORD}@postgres:5432/mi
+      MI_REDIS_URL: redis://redis:6379/0
+      MI_SECRET_KEK: ${MI_SECRET_KEK:?MI_SECRET_KEK .env dosyasında tanımlanmalı}
+      MI_SESSION_COOKIE_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: ./api
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:
