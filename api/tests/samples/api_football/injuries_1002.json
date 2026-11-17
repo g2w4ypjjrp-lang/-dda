@@ -1,0 +1,92 @@
+{
+ "get": "injuries",
+ "parameters": {
+  "fixture": "1002"
+ },
+ "errors": [],
+ "results": 3,
+ "paging": {
+  "current": 1,
+  "total": 1
+ },
+ "response": [
+  {
+   "player": {
+    "id": 9003,
+    "name": "Forvet Üç",
+    "photo": null,
+    "type": "Questionable",
+    "reason": "Tired"
+   },
+   "team": {
+    "id": 503,
+    "name": "Deneme SK",
+    "logo": null
+   },
+   "fixture": {
+    "id": 1002
+   },
+   "league": {
+    "id": 9001,
+    "name": "Örnek Lig",
+    "country": "Türkiye",
+    "logo": "https://example.invalid/l.png",
+    "flag": "https://example.invalid/tr.svg",
+    "season": 2026,
+    "round": "Regular Season - 12"
+   }
+  },
+  {
+   "player": {
+    "id": 9105,
+    "name": "Stoper Yedi",
+    "photo": null,
+    "type": "Missing Fixture",
+    "reason": "Red Card"
+   },
+   "team": {
+    "id": 504,
+    "name": "Kurgu United",
+    "logo": null
+   },
+   "fixture": {
+    "id": 1002
+   },
+   "league": {
+    "id": 9001,
+    "name": "Örnek Lig",
+    "country": "Türkiye",
+    "logo": "https://example.invalid/l.png",
+    "flag": "https://example.invalid/tr.svg",
+    "season": 2026,
+    "round": "Regular Season - 12"
+   }
+  },
+  {
+   "player": {
+    "id": 9106,
+    "name": "Kanat Sekiz",
+    "photo": null,
+    "type": "Missing Fixture",
+    "reason": "Knee Injury"
+   },
+   "team": {
+    "id": 504,
+    "name": "Kurgu United",
+    "logo": null
+   },
+   "fixture": {
+    "id": 1002
+   },
+   "league": {
+    "id": 9001,
+    "name": "Örnek Lig",
+    "country": "Türkiye",
+    "logo": "https://example.invalid/l.png",
+    "flag": "https://example.invalid/tr.svg",
+    "season": 2026,
+    "round": "Regular Season - 12"
+   }
+  }
+ ]
+}

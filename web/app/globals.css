@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/*
+ * Match Intelligence AI — tasarım tokenları.
+ * Varsayılan tasarım: DESIGN 01 — SIGNATURE BLACK (grafit yüzeyler, ölçülü şampanya altını vurgu,
+ * veri için kontrollü kobalt ve mat turkuaz). Diğer tasarımlar (Faz 8) aynı token adlarını
+ * [data-design="..."] altında yeniden tanımlar; bileşenler yalnızca bu tokenları kullanır.
+ */
+:root,
+[data-design="signature-black"] {
+  --mi-bg: #0a0b0d;
+  --mi-bg-elevated: #0f1114;
+  --mi-surface: #13161a;
+  --mi-surface-2: #191d22;
+  --mi-surface-3: #20252b;
+  --mi-line: rgba(255, 255, 255, 0.07);
+  --mi-line-strong: rgba(255, 255, 255, 0.14);
+  --mi-text: #eceef1;
+  --mi-text-2: #b4bac3;
+  --mi-muted: #7d8590;
+  --mi-gold: #c9ab6e;
+  --mi-gold-soft: rgba(201, 171, 110, 0.12);
+  --mi-cobalt: #5b84ff;
+  --mi-cobalt-soft: rgba(91, 132, 255, 0.14);
+  --mi-teal: #4fb6a8;
+  --mi-teal-soft: rgba(79, 182, 168, 0.14);
+  --mi-amber: #e0a84f;
+  --mi-amber-soft: rgba(224, 168, 79, 0.14);
+  --mi-red: #e2645a;
+  --mi-red-soft: rgba(226, 100, 90, 0.14);
+  --mi-home: #5b84ff;
+  --mi-draw: #8a93a0;
+  --mi-away: #c9ab6e;
+  --mi-radius: 14px;
+  --mi-radius-sm: 9px;
+  --mi-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -18px rgba(0, 0, 0, 0.8);
+  --mi-font: ui-sans-serif, -apple-system, "Segoe UI", system-ui, "Helvetica Neue", Arial,
+    sans-serif;
+  --mi-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--mi-bg);
+  --color-bg-elevated: var(--mi-bg-elevated);
+  --color-surface: var(--mi-surface);
+  --color-surface-2: var(--mi-surface-2);
+  --color-surface-3: var(--mi-surface-3);
+  --color-line: var(--mi-line);
+  --color-line-strong: var(--mi-line-strong);
+  --color-text: var(--mi-text);
+  --color-text-2: var(--mi-text-2);
+  --color-muted: var(--mi-muted);
+  --color-gold: var(--mi-gold);
+  --color-gold-soft: var(--mi-gold-soft);
+  --color-cobalt: var(--mi-cobalt);
+  --color-cobalt-soft: var(--mi-cobalt-soft);
+  --color-teal: var(--mi-teal);
+  --color-teal-soft: var(--mi-teal-soft);
+  --color-amber: var(--mi-amber);
+  --color-amber-soft: var(--mi-amber-soft);
+  --color-red: var(--mi-red);
+  --color-red-soft: var(--mi-red-soft);
+  --color-home: var(--mi-home);
+  --color-draw: var(--mi-draw);
+  --color-away: var(--mi-away);
+  --radius-card: var(--mi-radius);
+  --radius-ctl: var(--mi-radius-sm);
+  --font-sans: var(--mi-font);
+  --font-mono: var(--mi-font-mono);
+  --shadow-card: var(--mi-shadow);
+}
+
+html {
+  background: var(--mi-bg);
+  color: var(--mi-text);
+  font-family: var(--mi-font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 520px at 78% -12%, rgba(201, 171, 110, 0.07), transparent 60%),
+    radial-gradient(900px 480px at -8% 8%, rgba(91, 132, 255, 0.06), transparent 60%),
+    var(--mi-bg);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mi-muted);
+  font-weight: 600;
+}
+
+.hairline {
+  background: linear-gradient(90deg, transparent, var(--mi-line-strong), transparent);
+  height: 1px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mi-gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@keyframes mi-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--mi-surface-2) 0%, var(--mi-surface-3) 50%, var(--mi-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: mi-shimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes mi-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise { animation: mi-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes mi-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-dot { animation: mi-pulse 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

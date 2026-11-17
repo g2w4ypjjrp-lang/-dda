@@ -1,0 +1,70 @@
+[project]
+name = "mi-ml"
+version = "0.1.0"
+description = "Match Intelligence AI — tahmin motoru: olasılık modelleri, özellikler, eğitim, değerlendirme"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+dependencies = [
+    "mi-api",
+    "numpy>=2.1",
+    "scipy>=1.14",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.5",
+    "optuna>=4.1",
+]
+
+[project.scripts]
+mi-ml = "mi_ml.cli:main"
+
+[tool.uv.sources]
+mi-api = { path = "../api", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pandas-stubs>=2.2",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mi_ml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF", "SIM", "PT", "C4", "PIE", "NPY"]
+# E501: kod biçimlendiriciyle 100 sütunda tutulur; yalnızca uzun Türkçe metin dizgileri aşabilir.
+ignore = ["RUF001", "RUF002", "RUF003", "B008", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S311", "E501", "PT018"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+packages = ["mi_ml"]
+
+[[tool.mypy.overrides]]
+module = ["scipy", "scipy.*", "sklearn", "sklearn.*", "lightgbm", "lightgbm.*", "optuna", "optuna.*"]
+ignore_missing_imports = true
