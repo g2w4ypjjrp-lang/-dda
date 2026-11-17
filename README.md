@@ -19,6 +19,7 @@ kazanç garantisi vermez.
 3. [Faz 2 raporu](docs/03-faz2-raporu.md)
 4. [Faz 3 raporu](docs/04-faz3-raporu.md)
 5. [Arayüz raporu](docs/05-arayuz-raporu.md)
+6. [Faz 4 raporu — kupon motoru](docs/06-faz4-raporu.md)
 
 ## Hızlı başlangıç
 

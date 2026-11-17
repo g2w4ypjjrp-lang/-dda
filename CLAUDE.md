@@ -50,7 +50,8 @@ Windows'ta PowerShell ortam değişkeni örneği: `$env:MI_DATABASE_URL = "postg
 
 ## Sıradaki iş
 
-Faz 4 — kupon motoru: profil (düşük/dengeli/yüksek risk), maç sayısı, lig/piyasa filtresi; aynı
-maçtaki seçimler ortak skor dağılımından, farklı maçlar Monte Carlo ile birleşik olasılık
-(`ml/src/mi_ml/montecarlo.py` hazır); değiştirilemez kupon geçmişi; oran verisi (M-G2) yoksa EV
-gösterilmez. Ardından ilk yarı modeli.
+Faz 4 (kupon motoru) tamamlandı: `docs/06-faz4-raporu.md`. Sıradakiler:
+1. İlk yarı skor modeli ve İY piyasaları; maç sayfasından "kupona ekle".
+2. Faz 5 — sanal bakiye: çift kayıtlı defter (çekilemez, transfer edilemez), sabit tutar / yüzde /
+   kesirli Kelly (oran yoksa Kelly uygulanamaz), günlük risk ve işlem sınırı, drawdown, simüle ROI.
+   Kayıp kovalamayı teşvik eden özellik yok; sanal sonuç gerçek kazanç gibi gösterilmez.

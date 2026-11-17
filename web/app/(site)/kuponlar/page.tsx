@@ -1,0 +1,214 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Dice5, Info, Save, ShieldAlert, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+
+import { Badge, Button, Card, CardHeader, Empty, FormError, Skeleton, cx } from "@/components/ui";
+import { api, post } from "@/lib/api";
+import { fmtDateTime, fmtTime, pct, shiftDay, trToday } from "@/lib/format";
+import { useMe } from "@/lib/hooks";
+
+interface DraftLeg {
+  prediction_id: number; fixture_id: number; market: string; pick: string; label: string; probability: number;
+  reliability: "high" | "medium" | "low"; home: string; away: string; kickoff_at: string; competition: { name: string };
+}
+interface Draft {
+  profile: "low" | "balanced" | "high"; legs: DraftLeg[]; joint_probability: number; one_in: number | null;
+  monte_carlo: { runs: { n: number; p: number; std_error: number }[]; converged: boolean; note: string };
+  assumption: string; risk: string; odds_note: string; disclaimer: string; params: Record<string, unknown>;
+  candidates_considered: number;
+}
+interface SavedLeg { position: number; home: string; away: string; kickoff_at: string; label: string; probability: number; result: string; score: { home: number; away: number } | null }
+interface Saved { id: number; created_at: string; profile: string; status: string; joint_probability: number; legs: SavedLeg[] }
+
+const PROFILES = [
+  { key: "low", label: "Düşük risk", hint: "Seçim olasılığı ≥ %70" },
+  { key: "balanced", label: "Dengeli", hint: "Seçim olasılığı %55–78" },
+  { key: "high", label: "Yüksek risk", hint: "Seçim olasılığı %38–62" },
+] as const;
+const MARKETS = [
+  { key: "1x2", label: "Maç sonucu" },
+  { key: "double_chance", label: "Çifte şans" },
+  { key: "total", label: "Alt/Üst" },
+  { key: "btts", label: "Karşılıklı gol" },
+];
+const REL = { high: { tone: "teal", label: "Yüksek" }, medium: { tone: "gold", label: "Orta" }, low: { tone: "neutral", label: "Düşük" } } as const;
+const STATUS = { pending: { tone: "neutral", label: "Bekliyor" }, won: { tone: "teal", label: "Tuttu" }, lost: { tone: "red", label: "Tutmadı" }, void: { tone: "amber", label: "Geçersiz" } } as const;
+
+function History() {
+  const q = useQuery({ queryKey: ["coupons"], queryFn: () => api<{ items: Saved[] }>("/v1/coupons") });
+  return (
+    <Card>
+      <CardHeader eyebrow="Geçmiş" title="Kuponlarım" action={<span className="text-[11.5px] text-muted">Kayıtlar değiştirilemez</span>} />
+      <div className="mt-3 divide-y divide-line border-t border-line">
+        {q.isLoading ? <Skeleton className="m-5 h-24" /> : !q.data?.items.length ? (
+          <Empty title="Henüz kayıtlı kupon yok">Oluşturduğunuz kuponu kaydettiğinizde maç sonuçlarıyla birlikte burada izlenir.</Empty>
+        ) : q.data.items.map((c) => (
+          <details key={c.id} className="group px-5 py-3.5">
+            <summary className="flex cursor-pointer list-none items-center gap-3 text-[13px]">
+              <Badge tone={STATUS[c.status as keyof typeof STATUS]?.tone ?? "neutral"}>{STATUS[c.status as keyof typeof STATUS]?.label ?? c.status}</Badge>
+              <span className="font-medium">{c.legs.length} seçim</span>
+              <span className="num text-text-2">Olasılık {pct(c.joint_probability, 1)}</span>
+              <span className="ml-auto text-[11.5px] text-muted">{fmtDateTime(c.created_at)}</span>
+            </summary>
+            <ul className="mt-3 space-y-1.5">
+              {c.legs.map((l) => (
+                <li key={l.position} className="flex items-center gap-3 rounded-ctl bg-bg-elevated px-3 py-2 text-[12.5px]">
+                  <span className="min-w-0 flex-1 truncate">{l.home} – {l.away}</span>
+                  <span className="text-text-2">{l.label}</span>
+                  <span className="num w-12 text-right">{pct(l.probability)}</span>
+                  {l.score && <span className="num text-muted">{l.score.home}–{l.score.away}</span>}
+                  <Badge tone={STATUS[l.result as keyof typeof STATUS]?.tone ?? "neutral"}>{STATUS[l.result as keyof typeof STATUS]?.label ?? l.result}</Badge>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+export default function CouponCenter() {
+  const { data: me, isLoading } = useMe();
+  const qc = useQueryClient();
+  const today = trToday();
+  const [day, setDay] = useState(today);
+  const [profile, setProfile] = useState<Draft["profile"]>("balanced");
+  const [size, setSize] = useState(3);
+  const [markets, setMarkets] = useState<string[]>([]);
+  const [saved, setSaved] = useState<number | null>(null);
+
+  const generate = useMutation({
+    mutationFn: () => { setSaved(null); return post<Draft>("/v1/coupons/generate", { date: day, profile, size, ...(markets.length ? { markets } : {}) }); },
+  });
+  const save = useMutation({
+    mutationFn: (d: Draft) => post<Saved>("/v1/coupons", { profile: d.profile, params: d.params, legs: d.legs.map((l) => ({ prediction_id: l.prediction_id, market: l.market, pick: l.pick })) }),
+    onSuccess: (c) => { setSaved(c.id); qc.invalidateQueries({ queryKey: ["coupons"] }); },
+  });
+  const d = generate.data;
+
+  return (
+    <div className="py-8">
+      <div className="eyebrow mb-2">Kupon Merkezi</div>
+      <h1 className="text-[28px] font-semibold tracking-tight">Model tabanlı kupon oluşturucu</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-muted">
+        Seçimler yalnızca yayımlanmış ve test edilmiş tahminlerden gelir. Birleşik olasılık; aynı maçtaki seçimler için
+        ortak skor dağılımından, farklı maçlar için birlikte hesaplanır ve Monte Carlo simülasyonuyla doğrulanır.
+        Sanal analizdir; gerçek bahis yapılmaz.
+      </p>
+
+      {isLoading ? <Skeleton className="mt-6 h-40" /> : !me ? (
+        <Card className="mt-6"><Empty title="Kupon oluşturmak için giriş yapın" icon={<ShieldAlert className="size-5" aria-hidden />}>
+          <Link href="/giris?next=/kuponlar" className="font-medium text-gold hover:underline">Giriş yapın</Link> veya <Link href="/kayit" className="font-medium text-gold hover:underline">ücretsiz hesap açın</Link>.
+        </Empty></Card>
+      ) : (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">
+          <Card className="h-fit">
+            <CardHeader eyebrow="Ayarlar" title="Kupon profili" />
+            <form className="space-y-5 p-5" onSubmit={(e) => { e.preventDefault(); generate.mutate(); }}>
+              <fieldset>
+                <legend className="mb-2 text-[13px] font-medium text-text-2">Gün</legend>
+                <div className="flex gap-2">
+                  {[today, shiftDay(today, 1)].map((x, i) => (
+                    <button key={x} type="button" aria-pressed={day === x} onClick={() => setDay(x)} className={cx("h-9 flex-1 rounded-ctl text-[12.5px] font-medium", day === x ? "bg-text text-bg" : "border border-line text-text-2")}>
+                      {i === 0 ? "Bugün" : "Yarın"}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend className="mb-2 text-[13px] font-medium text-text-2">Risk profili</legend>
+                <div className="space-y-2">
+                  {PROFILES.map((p) => (
+                    <label key={p.key} className={cx("flex cursor-pointer items-center justify-between rounded-ctl border px-3.5 py-2.5 text-[13px]", profile === p.key ? "border-gold/60 bg-gold-soft" : "border-line")}>
+                      <span className="flex items-center gap-2.5">
+                        <input type="radio" name="profile" value={p.key} checked={profile === p.key} onChange={() => setProfile(p.key)} className="accent-[var(--mi-gold)]" />
+                        {p.label}
+                      </span>
+                      <span className="text-[11.5px] text-muted">{p.hint}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="block">
+                <span className="mb-2 block text-[13px] font-medium text-text-2">Maç sayısı</span>
+                <select value={size} onChange={(e) => setSize(Number(e.target.value))} className="h-10 w-full rounded-ctl border border-line-strong bg-bg-elevated px-3 text-sm">
+                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} maç</option>)}
+                </select>
+              </label>
+              <fieldset>
+                <legend className="mb-2 text-[13px] font-medium text-text-2">Piyasalar <span className="text-muted">(boş = tümü)</span></legend>
+                <div className="flex flex-wrap gap-2">
+                  {MARKETS.map((m) => (
+                    <button key={m.key} type="button" aria-pressed={markets.includes(m.key)} onClick={() => setMarkets(markets.includes(m.key) ? markets.filter((x) => x !== m.key) : [...markets, m.key])}
+                      className={cx("h-8 rounded-full px-3 text-[12px] font-medium", markets.includes(m.key) ? "bg-gold-soft text-gold" : "border border-line text-text-2")}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <Button type="submit" className="w-full" loading={generate.isPending}><Sparkles className="size-4" aria-hidden />Kupon oluştur</Button>
+            </form>
+          </Card>
+
+          <div className="space-y-6">
+            {generate.isError ? (
+              <Card><div className="p-5"><FormError error={generate.error} /></div></Card>
+            ) : !d ? (
+              <Card><Empty title="Profil seçip kupon oluşturun" icon={<Dice5 className="size-5" aria-hidden />}>Model, seçtiğiniz olasılık bandına uyan ve güvenilirliği yeterli maçlardan en olası seçimleri önerir.</Empty></Card>
+            ) : (
+              <Card className="rise">
+                <CardHeader eyebrow={`${PROFILES.find((p) => p.key === d.profile)?.label} · ${d.legs.length} maç`} title="Önerilen kupon" action={<span className="text-[11.5px] text-muted">{d.candidates_considered} uygun maç tarandı</span>} />
+                <ul className="mt-3 divide-y divide-line border-y border-line">
+                  {d.legs.map((l) => (
+                    <li key={l.prediction_id} className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <Link href={`/maclar/${l.fixture_id}`} className="block truncate text-[13.5px] font-medium hover:text-gold">{l.home} – {l.away}</Link>
+                        <div className="text-[11.5px] text-muted">{l.competition.name} · {fmtTime(l.kickoff_at)}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[12.5px] text-text-2">{l.label}</span>
+                        <Badge tone={REL[l.reliability].tone}>{REL[l.reliability].label}</Badge>
+                        <span className="num w-12 text-right text-[14px] font-semibold">{pct(l.probability)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="grid gap-5 p-5 sm:grid-cols-[auto_1fr]">
+                  <div className="rounded-ctl border border-line bg-bg-elevated px-5 py-4 text-center">
+                    <div className="eyebrow mb-1">Birleşik olasılık</div>
+                    <div className="num text-3xl font-semibold text-gold">{pct(d.joint_probability, 1)}</div>
+                    {d.one_in && <div className="mt-1 text-[11.5px] text-muted">≈ her {d.one_in.toFixed(1)} kupondan 1</div>}
+                  </div>
+                  <div className="space-y-2 text-[12.5px] leading-relaxed text-text-2">
+                    <p>{d.risk}</p>
+                    <p className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
+                      {d.monte_carlo.converged && <Badge tone="teal"><CheckCircle2 className="size-3" aria-hidden />Simülasyon doğruladı</Badge>}
+                      {d.monte_carlo.runs.map((r) => <span key={r.n} className="num">{r.n.toLocaleString("tr-TR")} sim: {pct(r.p, 1)} ± {pct(r.std_error, 2)}</span>)}
+                    </p>
+                    <p className="text-[11.5px] text-muted">{d.assumption}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4">
+                  <Button onClick={() => save.mutate(d)} loading={save.isPending} disabled={saved !== null}>
+                    <Save className="size-4" aria-hidden />{saved ? "Kaydedildi" : "Kuponu kaydet"}
+                  </Button>
+                  <span className="text-[11.5px] text-muted">Kayıtlı kupon değiştirilemez; sonuçlar maçlar bitince işlenir.</span>
+                  <FormError error={save.error} />
+                </div>
+                <div className="space-y-1.5 border-t border-line bg-bg-elevated px-5 py-3 text-[11.5px] text-muted">
+                  <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.odds_note}</p>
+                  <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.disclaimer}</p>
+                </div>
+              </Card>
+            )}
+            <History />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
