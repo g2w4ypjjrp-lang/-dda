@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useState } from "react";
+import Link from "next/link";
+import { Fragment, useEffect, useState } from "react";
 
 import { PageTitle, Table, can, useAdmin, useGuard } from "@/components/admin";
 import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Skeleton } from "@/components/ui";
@@ -58,6 +59,18 @@ function UserPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
         <FormError error={saveRoles.error} />
       </div>
       <div className="text-[12px]">
+        {can(me, "data.explore") && (
+          <div className="mb-4">
+            <div className="eyebrow mb-2">İlişkili kayıtlar</div>
+            <div className="flex flex-wrap gap-1.5">
+              {([["subscriptions", "subscriptions.read", "Abonelikler"], ["orders", "finance.read", "Ödemeler"], ["coupons", "coupons.read", "Kuponlar"], ["virtual_accounts", "virtual.read", "Sanal hesap"]] as const)
+                .filter(([, perm]) => can(me, perm))
+                .map(([entity, , label]) => (
+                  <Link key={entity} href={`/yonetim/veri-gezgini?e=${entity}&f.user_id=${u.id}`} className="rounded-full border border-line px-2.5 py-1 hover:border-gold hover:text-gold">{label}</Link>
+                ))}
+            </div>
+          </div>
+        )}
         <div className="eyebrow mb-2">Son etkinlik</div>
         <ul className="max-h-56 space-y-1.5 overflow-y-auto">
           {u.activity.map((a) => <li key={a.id} className="flex justify-between gap-2"><span className="truncate">{a.action}</span><span className="shrink-0 text-muted">{fmtDateTime(a.occurred_at)}</span></li>)}
@@ -69,6 +82,7 @@ function UserPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
 
 export default function UsersPage() {
   const [q, setQ] = useState("");
+  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q"); if (v) setQ(v); }, []);
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);

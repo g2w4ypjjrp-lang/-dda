@@ -2,8 +2,9 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Crown, Database, FileClock, LayoutGrid, LogOut,
-  Palette, ShieldCheck, Users, Wallet,
+  Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Coins, Crown, Database, FileClock, HeartPulse,
+  KeyRound, LayoutGrid, LogOut, Palette, Search, ShieldAlert, ShieldCheck, Siren, TableProperties, Ticket, ToggleRight, Users,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,18 +13,27 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { ApiError, post } from "@/lib/api";
 import { useAdminMe, useLogout } from "@/lib/hooks";
 import type { AdminMe } from "@/lib/types";
+import { CommandPalette } from "./CommandPalette";
 import { Logo } from "./Logo";
 import { Badge, Button, FormError, Input, Skeleton, cx } from "./ui";
 
-const NAV = [
-  { href: "/yonetim", label: "Command Center", icon: LayoutGrid, perm: null },
-  { href: "/yonetim/veri", label: "Futbol Veri Merkezi", icon: Database, perm: "football.read" },
-  { href: "/yonetim/modeller", label: "Model Lab", icon: BrainCircuit, perm: "models.read" },
-  { href: "/yonetim/kullanicilar", label: "Kullanıcılar", icon: Users, perm: "users.read" },
-  { href: "/yonetim/abonelikler", label: "Paketler & Abonelikler", icon: Crown, perm: "subscriptions.read" },
-  { href: "/yonetim/finans", label: "Finans & Lisanslar", icon: Wallet, perm: "finance.read" },
-  { href: "/yonetim/tasarim", label: "Design Studio", icon: Palette, perm: "design.read" },
-  { href: "/yonetim/denetim", label: "Denetim Kaydı", icon: FileClock, perm: "audit.read" },
+export const NAV = [
+  { group: "Genel", href: "/yonetim", label: "Command Center", icon: LayoutGrid, perm: null },
+  { group: "Genel", href: "/yonetim/aksiyon", label: "Action Center", icon: Siren, perm: null },
+  { group: "Operasyon", href: "/yonetim/veri", label: "Futbol Veri Merkezi", icon: Database, perm: "football.read" },
+  { group: "Operasyon", href: "/yonetim/modeller", label: "Model Lab", icon: BrainCircuit, perm: "models.read" },
+  { group: "Operasyon", href: "/yonetim/kuponlar", label: "Kupon Yönetimi", icon: Ticket, perm: "coupons.read" },
+  { group: "Operasyon", href: "/yonetim/sanal", label: "Sanal Finans", icon: Coins, perm: "virtual.read" },
+  { group: "Gelir", href: "/yonetim/abonelikler", label: "Paketler & Abonelikler", icon: Crown, perm: "subscriptions.read" },
+  { group: "Gelir", href: "/yonetim/finans", label: "Finans & Lisanslar", icon: Wallet, perm: "finance.read" },
+  { group: "Kullanıcı & Güvenlik", href: "/yonetim/kullanicilar", label: "Kullanıcılar", icon: Users, perm: "users.read" },
+  { group: "Kullanıcı & Güvenlik", href: "/yonetim/roller", label: "Rol ve Yetki", icon: KeyRound, perm: "roles.read" },
+  { group: "Kullanıcı & Güvenlik", href: "/yonetim/guvenlik", label: "Güvenlik Merkezi", icon: ShieldAlert, perm: "security.read" },
+  { group: "Kullanıcı & Güvenlik", href: "/yonetim/denetim", label: "Denetim Kaydı", icon: FileClock, perm: "audit.read" },
+  { group: "Platform", href: "/yonetim/veri-gezgini", label: "Data Explorer", icon: TableProperties, perm: "data.explore" },
+  { group: "Platform", href: "/yonetim/sistem", label: "Sistem Sağlığı", icon: HeartPulse, perm: "system.read" },
+  { group: "Platform", href: "/yonetim/bayraklar", label: "Özellik Bayrakları", icon: ToggleRight, perm: null },
+  { group: "Platform", href: "/yonetim/tasarim", label: "Design Studio", icon: Palette, perm: "design.read" },
 ] as const;
 
 const AdminContext = createContext<AdminMe | null>(null);
@@ -112,38 +122,52 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { data: me, isLoading } = useAdminMe();
   const logout = useLogout("admin");
+  const [palette, setPalette] = useState(false);
 
   useEffect(() => {
     if (!isLoading && me === null) router.replace("/yonetim/giris");
   }, [isLoading, me, router]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((v) => !v); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (isLoading || !me) {
     return <div className="grid min-h-dvh place-items-center"><Skeleton className="h-10 w-48" /></div>;
   }
-  const items = NAV.filter((n) => !n.perm || can(me, n.perm));
+  const items = NAV.filter((n) => !n.perm || can(me, n.perm)).filter((n) => n.href !== "/yonetim/bayraklar" || can(me, "flags.manage") || can(me, "settings.read"));
   return (
     <AdminContext.Provider value={me}>
       <ReauthProvider>
         <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr]">
-          <aside className="border-b border-line bg-bg-elevated md:sticky md:top-0 md:h-dvh md:border-b-0 md:border-r">
-            <div className="flex h-16 items-center px-5"><Link href="/yonetim"><Logo /></Link></div>
-            <nav aria-label="Yönetim menüsü" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible">
-              {items.map((n) => {
+          <aside className="border-b border-line bg-bg-elevated md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:border-b-0 md:border-r">
+            <div className="flex h-16 shrink-0 items-center justify-between px-5"><Link href="/yonetim"><Logo /></Link></div>
+            <button type="button" onClick={() => setPalette(true)} className="mx-3 mb-3 hidden items-center gap-2 rounded-ctl border border-line px-3 py-2 text-[12.5px] text-muted hover:text-text md:flex">
+              <Search className="size-3.5" aria-hidden />Ara veya git…<kbd className="ml-auto rounded border border-line px-1.5 font-mono text-[10.5px]">Ctrl K</kbd>
+            </button>
+            <nav aria-label="Yönetim menüsü" className="flex gap-1 overflow-x-auto px-3 pb-3 md:min-h-0 md:flex-1 md:flex-col md:gap-0.5 md:overflow-y-auto">
+              {items.map((n, i) => {
                 const active = n.href === "/yonetim" ? path === n.href : path.startsWith(n.href);
+                const header = i === 0 || items[i - 1]!.group !== n.group;
                 return (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cx("flex shrink-0 items-center gap-2.5 rounded-ctl px-3 py-2 text-[13px] font-medium", active ? "bg-surface-2 text-text" : "text-text-2 hover:text-text")}
-                  >
-                    <n.icon className={cx("size-4", active ? "text-gold" : "text-muted")} aria-hidden />
-                    {n.label}
-                  </Link>
+                  <div key={n.href} className="shrink-0">
+                    {header && <div className="eyebrow hidden px-3 pb-1 pt-3 text-[10px] md:block">{n.group}</div>}
+                    <Link
+                      href={n.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cx("flex items-center gap-2.5 rounded-ctl px-3 py-1.5 text-[13px] font-medium", active ? "bg-surface-2 text-text" : "text-text-2 hover:text-text")}
+                    >
+                      <n.icon className={cx("size-4", active ? "text-gold" : "text-muted")} aria-hidden />
+                      {n.label}
+                    </Link>
+                  </div>
                 );
               })}
             </nav>
-            <div className="hidden px-5 py-4 md:absolute md:bottom-0 md:block md:w-full">
+            <div className="hidden shrink-0 border-t border-line px-5 py-4 md:block">
               <div className="truncate text-[12.5px] font-medium">{me.display_name}</div>
               <div className="truncate text-[11px] text-muted">{me.roles.join(", ")}</div>
               <div className="mt-3 flex gap-2">
@@ -156,6 +180,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </aside>
           <main className="min-w-0 px-4 py-6 sm:px-8 sm:py-8">{children}</main>
         </div>
+        <CommandPalette open={palette} onClose={() => setPalette(false)} items={items} />
       </ReauthProvider>
     </AdminContext.Provider>
   );

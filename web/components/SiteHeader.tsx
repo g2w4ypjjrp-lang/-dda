@@ -256,11 +256,24 @@ function Masthead({ children }: { children: ReactNode }) {
   );
 }
 
+/** Yönetimden açılan bakım/duyuru şeridi (özellik bayrağı: maintenance_notice). */
+function NoticeBar() {
+  const q = useQuery({ queryKey: ["notice"], queryFn: () => api<{ message: string | null }>("/v1/notice"), staleTime: 60_000, retry: false });
+  if (!q.data?.message) return null;
+  return (
+    <div role="status" className="border-b border-amber/30 bg-amber-soft px-4 py-2 text-center text-[12.5px] text-text" data-testid="site-notice">
+      {q.data.message}
+    </div>
+  );
+}
+
 /** Tasarımın kabuğuna göre site çerçevesi (gezinme, içerik genişliği, mobil menü). */
 export function SiteShell({ children }: { children: ReactNode }) {
   const { shell } = useLayout();
-  if (shell === "sidebar") return <Sidebar>{children}</Sidebar>;
-  if (shell === "terminal") return <Terminal>{children}</Terminal>;
-  if (shell === "masthead") return <Masthead>{children}</Masthead>;
-  return <Topbar>{children}</Topbar>;
+  const frame =
+    shell === "sidebar" ? <Sidebar>{children}</Sidebar>
+    : shell === "terminal" ? <Terminal>{children}</Terminal>
+    : shell === "masthead" ? <Masthead>{children}</Masthead>
+    : <Topbar>{children}</Topbar>;
+  return <><NoticeBar />{frame}</>;
 }

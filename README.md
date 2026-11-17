@@ -25,6 +25,7 @@ kazanç garantisi vermez.
 8. [Faz 6 raporu — paketler, ödeme, lisans](docs/08-faz6-raporu.md)
 9. [İlk yarı modeli ve kupona ekle](docs/09-ilk-yari-raporu.md)
 10. [Faz 8 raporu — on tasarım ve Design Studio](docs/10-faz8-raporu.md)
+11. [Faz 9 raporu — süper yönetici modülleri](docs/11-faz9-raporu.md)
 
 ## Hızlı başlangıç
 

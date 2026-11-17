@@ -83,7 +83,7 @@ test("ilk süper yönetici: parolasız kurulum → parola → MFA → yönetim p
   await page.getByLabel("Doğrulama kodu").fill(await freshTotp(secret, used));
   await page.getByRole("button", { name: "Giriş yap" }).click();
   await expect(page.getByRole("heading", { name: "Platform durumu" })).toBeVisible();
-  await expect(page.getByText("Ödeme altyapısı henüz bağlı değil")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dikkat gerektirenler" })).toBeVisible();
 
   await page.getByRole("link", { name: "Futbol Veri Merkezi" }).click();
   await expect(page.getByRole("heading", { name: "Veri işleri ve ligler" })).toBeVisible();
