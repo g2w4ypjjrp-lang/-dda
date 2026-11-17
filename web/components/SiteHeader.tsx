@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, Home, LayoutDashboard, LogIn, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, Home, LayoutDashboard, LogIn, ShieldCheck, Ticket } from "lucide-react";
 
 import { Logo } from "./Logo";
 import { cx } from "./ui";
@@ -11,6 +11,7 @@ import { useMe } from "@/lib/hooks";
 const NAV = [
   { href: "/", label: "Genel Bakış", icon: Home },
   { href: "/maclar", label: "Maç Merkezi", icon: Activity },
+  { href: "/kuponlar", label: "Kupon Merkezi", icon: Ticket },
   { href: "/performans", label: "Model Şeffaflığı", icon: BarChart3 },
 ];
 
@@ -69,7 +70,7 @@ export function SiteHeader() {
       </header>
       {/* Mobil alt gezinme: masaüstü menünün küçültülmüşü değil, başparmak erişimine göre. */}
       <nav aria-label="Mobil menü" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {[...NAV, me ? { href: "/panel", label: "Panelim", icon: LayoutDashboard } : { href: "/giris", label: "Giriş", icon: LogIn }].map((n) => (
             <Link
               key={n.href}

@@ -38,8 +38,8 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 | 1 | Teknik temel: mimari, veritabanı, kimlik doğrulama, MFA, RBAC, denetim kaydı, loglama | ✅ Tamamlandı ([rapor](02-faz1-raporu.md)) |
 | 2 | Futbol verileri: sağlayıcı uyarlayıcısı, lig/takım/maç/istatistik, canlı veri, veri kalitesi | ✅ Altyapı tamamlandı ([rapor](03-faz2-raporu.md)); gerçek veri M-G1 ile |
 | 3 | AI: özellik mühendisliği, modeller, Optuna, ensemble, kalibrasyon, belirsizlik, backtest | ✅ Motor tamamlandı ([rapor](04-faz3-raporu.md)); gerçek metrikler M-G1 verisiyle |
-| 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ⏭️ Sıradaki |
-| 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ⏳ |
+| 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ✅ Tamamlandı ([rapor](06-faz4-raporu.md)); oran/EV M-G2 ile, ilk yarı piyasaları sırada |
+| 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ⏭️ Sıradaki |
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ⏳ |
 | 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | 🟡 Çekirdek tamamlandı ([rapor](05-arayuz-raporu.md)); kupon, widget, bildirim kaldı |
 | 8 | 10 premium tasarım sistemi + Design Studio (önizleme, taslak, yayın, sürüm, geri alma) | ⏳ |

@@ -92,6 +92,12 @@ def adjust_to_1x2(matrix: ScoreMatrix, target: dict[str, float]) -> ScoreMatrix:
     return ScoreMatrix(p, matrix.lambda_home, matrix.lambda_away, matrix.rho, matrix.tail_mass)
 
 
+def score_matrix_payload(matrix: ScoreMatrix, max_goals: int = 10) -> list[list[float]]:
+    p = matrix.probs[: max_goals + 1, : max_goals + 1]
+    p = p / p.sum()
+    return [[round(float(v), 7) for v in row] for row in p]
+
+
 def reliability_level(test: dict[str, Any], th: Thresholds) -> str:
     n, ece = int(test.get("n", 0)), float(test.get("ece", 1.0))
     if n >= 3 * th.min_test_n and ece <= th.max_ece / 2:
@@ -252,6 +258,9 @@ def predict(
                 matrix = adjust_to_1x2(base, target)
                 probabilities = matrix.markets()
                 probabilities["1x2"] = target
+                # Tam ortak skor dağılımı (0..10 gol): kupon motoru aynı maçtaki birden fazla
+                # seçimin birleşik olasılığını buradan kesin hesaplar. Kuyruk ≈ 0, normalize edilir.
+                probabilities["score_matrix"] = score_matrix_payload(matrix)
                 if boot:
                     point = base.one_x_two()
                     samples = []

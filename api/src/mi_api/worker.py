@@ -62,6 +62,8 @@ app.conf.update(
             "schedule": 900.0,
             "args": ("upcoming_details", {}),
         },
+        # Kupon sonuçlandırma: biten maçların seçimleri ve kuponların durumu.
+        "coupons-settle": {"task": "mi.coupons.settle", "schedule": 900.0},
         "standings": {
             "task": "mi.football.sync",
             "schedule": 6 * 3600.0,
@@ -128,3 +130,20 @@ def football_sync(job: Job, params: dict[str, Any]) -> dict[str, Any]:
     finally:
         if lock is not None:
             lock.release()
+
+
+async def _settle_coupons() -> dict[str, int]:
+    from mi_api.coupons.api import settle_coupons
+
+    settings = Settings()
+    db = Database(settings.database_url.get_secret_value(), pool_size=1)
+    try:
+        async with db.session() as session:
+            return await settle_coupons(session, datetime.now(UTC))
+    finally:
+        await db.close()
+
+
+@app.task(name="mi.coupons.settle")  # type: ignore[untyped-decorator]
+def coupons_settle() -> dict[str, int]:
+    return asyncio.run(_settle_coupons())

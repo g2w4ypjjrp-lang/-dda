@@ -83,6 +83,11 @@ def test_predictions_written_immutable_and_deduplicated(
     assert abs(x["home"] + x["draw"] + x["away"] - 1) < 1e-9
     # Piyasalar aynı ortak dağılımdan: çifte şans 1X = ev + beraberlik.
     assert abs(p.probabilities["double_chance"]["1X"] - (x["home"] + x["draw"])) < 1e-9
+    sm = p.probabilities["score_matrix"]
+    assert len(sm) == 11 and abs(sum(map(sum, sm)) - 1) < 1e-4
+    # Matristen türetilen 1X2, yayımlanan 1X2 ile tutarlı.
+    home = sum(sm[i][j] for i in range(11) for j in range(11) if i > j)
+    assert abs(home - x["home"]) < 1e-3
     assert p.uncertainty["method"] == "dixon_coles_bootstrap" and p.uncertainty["samples"] == 5
     assert "güven aralığı değildir" in p.uncertainty["label"]
     assert p.data_snapshot["history_matches"] > 300 and p.features["h_n"] >= 5

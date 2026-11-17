@@ -25,6 +25,7 @@ export default function CommandCenter() {
   const runs = useQuery({ queryKey: ["admin", "sync-runs", "recent"], queryFn: () => api<{ items: SyncRun[] }>("/admin/v1/football/sync-runs?limit=8"), enabled: can(me, "football.read"), refetchInterval: 30_000 });
   const users = useQuery({ queryKey: ["admin", "users-total"], queryFn: () => api<{ total: number }>("/admin/v1/users?page_size=1"), enabled: can(me, "users.read") });
   const models = useQuery({ queryKey: ["admin", "models"], queryFn: () => api<{ items: ModelBrief[] }>("/admin/v1/models"), enabled: can(me, "models.read") });
+  const coupons = useQuery({ queryKey: ["admin", "coupons"], queryFn: () => api<{ counts: Record<string, number>; settled: { n: number; mean_predicted: number; observed_win_rate: number } | null }>("/admin/v1/coupons?limit=1"), enabled: can(me, "coupons.read") });
   const today = useQuery({ queryKey: ["fixtures", trToday()], queryFn: () => api<{ items: { status: string }[] }>(`/v1/football/fixtures?date=${trToday()}`) });
 
   const failed = runs.data?.items.filter((r) => r.status === "failed") ?? [];
@@ -84,6 +85,19 @@ export default function CommandCenter() {
           ) : <Skeleton className="m-5 h-28" />}
         </Card>
       </div>
+
+      {can(me, "coupons.read") && (
+        <Card className="mt-6">
+          <CardHeader eyebrow="Kuponlar" title="Kupon geçmişi" />
+          <div className="grid grid-cols-2 gap-6 p-5 md:grid-cols-5">
+            <Stat label="Bekleyen" value={coupons.data?.counts.pending ?? 0} />
+            <Stat label="Tutan" value={coupons.data?.counts.won ?? 0} />
+            <Stat label="Tutmayan" value={coupons.data?.counts.lost ?? 0} />
+            <Stat label="Beklenen olasılık" value={coupons.data?.settled ? `%${(coupons.data.settled.mean_predicted * 100).toFixed(1)}` : "—"} hint="sonuçlananların ortalaması" />
+            <Stat label="Gerçekleşen" value={coupons.data?.settled ? `%${(coupons.data.settled.observed_win_rate * 100).toFixed(1)}` : "—"} hint={coupons.data?.settled ? `${coupons.data.settled.n} kupon` : "henüz sonuç yok"} />
+          </div>
+        </Card>
+      )}
 
       <Card className="mt-6">
         <CardHeader eyebrow="İşletme" title="Gelir ve abonelik metrikleri" />
