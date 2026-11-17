@@ -228,3 +228,11 @@ async def use(client: httpx.AsyncClient) -> AsyncIterator[httpx.AsyncClient]:
         yield client
     finally:
         await client.aclose()
+
+
+@pytest.fixture
+def seeded(sql: psycopg.Connection[Any], clock: Clock) -> dict[str, Any]:
+    """Kupon/sanal portföy testleri: 4 yaklaşan maç ve yayımlanmış tahminleri."""
+    from coupon_support import seed
+
+    return seed(sql, clock)

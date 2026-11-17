@@ -29,6 +29,7 @@ from mi_api.logs import RequestContext
 from mi_api.migrate import current_revision, head_revision
 from mi_api.predictions.api import create_predictions_router
 from mi_api.ratelimit import Limiter, MemoryLimiter, RedisLimiter
+from mi_api.virtual.api import create_virtual_router
 
 
 def create_app(
@@ -80,6 +81,7 @@ def create_app(
     app.include_router(create_football_router())
     app.include_router(create_predictions_router())
     app.include_router(create_coupons_router())
+    app.include_router(create_virtual_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

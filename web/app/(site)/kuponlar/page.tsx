@@ -5,9 +5,9 @@ import { CheckCircle2, Dice5, Info, Save, ShieldAlert, Sparkles } from "lucide-r
 import Link from "next/link";
 import { useState } from "react";
 
-import { Badge, Button, Card, CardHeader, Empty, FormError, Skeleton, cx } from "@/components/ui";
-import { api, post } from "@/lib/api";
-import { fmtDateTime, fmtTime, pct, shiftDay, trToday } from "@/lib/format";
+import { Badge, Button, Card, CardHeader, Empty, FormError, Notice, Skeleton, cx } from "@/components/ui";
+import { ApiError, api, post } from "@/lib/api";
+import { fmtDateTime, fmtTime, pct, sb, shiftDay, trToday } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 
 interface DraftLeg {
@@ -36,6 +36,46 @@ const MARKETS = [
 ];
 const REL = { high: { tone: "teal", label: "Yüksek" }, medium: { tone: "gold", label: "Orta" }, low: { tone: "neutral", label: "Düşük" } } as const;
 const STATUS = { pending: { tone: "neutral", label: "Bekliyor" }, won: { tone: "teal", label: "Tuttu" }, lost: { tone: "red", label: "Tutmadı" }, void: { tone: "amber", label: "Geçersiz" } } as const;
+
+function VirtualTicket({ couponId, probability }: { couponId: number; probability: number }) {
+  const qc = useQueryClient();
+  const [source, setSource] = useState<"model_fair" | "user_entered">("model_fair");
+  const [odds, setOdds] = useState("");
+  const place = useMutation({
+    mutationFn: () => post<{ ticket: { stake_minor: number; odds: number } }>("/v1/virtual/tickets", {
+      coupon_id: couponId, odds_source: source, ...(source === "user_entered" ? { odds } : {}),
+    }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["virtual"] }),
+  });
+  if (place.data) {
+    return (
+      <Notice tone="teal">
+        Sanal bilet açıldı: {sb(place.data.ticket.stake_minor)}, oran {place.data.ticket.odds.toFixed(2)}.{" "}
+        <Link href="/sanal" className="font-medium text-gold hover:underline">Sanal Portföy</Link>
+      </Notice>
+    );
+  }
+  const noAccount = place.error instanceof ApiError && place.error.code === "no_account";
+  return (
+    <div className="space-y-3 rounded-ctl border border-line bg-bg-elevated p-4">
+      <div className="text-[13px] font-medium">Sanal bilet aç <span className="text-muted">(gerçek para değildir)</span></div>
+      <div className="flex flex-wrap gap-4 text-[12.5px]">
+        <label className="flex items-center gap-2"><input type="radio" checked={source === "model_fair"} onChange={() => setSource("model_fair")} className="accent-[var(--mi-gold)]" />Model adil oranı ({(1 / probability).toFixed(2)})</label>
+        <label className="flex items-center gap-2"><input type="radio" checked={source === "user_entered"} onChange={() => setSource("user_entered")} className="accent-[var(--mi-gold)]" />Kendi oranım</label>
+        {source === "user_entered" && (
+          <input aria-label="Oran" inputMode="decimal" placeholder="ör. 2.40" value={odds} onChange={(e) => setOdds(e.target.value.replace(",", "."))} className="num h-8 w-24 rounded-ctl border border-line-strong bg-bg px-2 text-sm" />
+        )}
+      </div>
+      <p className="text-[11.5px] text-muted">
+        {source === "model_fair" ? "Model adil oranı piyasa oranı değildir; model iyi kalibre ise beklenen sanal kâr sıfırdır." : "Girdiğiniz oran doğrulanmaz; EV bu orana göre hesaplanır."} Tutar, Sanal Portföy ayarlarınıza göre sunucuda hesaplanır.
+      </p>
+      {noAccount ? (
+        <Notice tone="amber">Önce <Link href="/sanal" className="font-medium text-gold hover:underline">sanal portföy</Link> açın.</Notice>
+      ) : <FormError error={place.error} />}
+      <Button size="sm" variant="secondary" loading={place.isPending} disabled={source === "user_entered" && !odds} onClick={() => place.mutate()}>Sanal bilet aç</Button>
+    </div>
+  );
+}
 
 function History() {
   const q = useQuery({ queryKey: ["coupons"], queryFn: () => api<{ items: Saved[] }>("/v1/coupons") });
@@ -199,6 +239,7 @@ export default function CouponCenter() {
                   <span className="text-[11.5px] text-muted">Kayıtlı kupon değiştirilemez; sonuçlar maçlar bitince işlenir.</span>
                   <FormError error={save.error} />
                 </div>
+                {saved && <div className="border-t border-line px-5 py-4"><VirtualTicket couponId={saved} probability={d.joint_probability} /></div>}
                 <div className="space-y-1.5 border-t border-line bg-bg-elevated px-5 py-3 text-[11.5px] text-muted">
                   <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.odds_note}</p>
                   <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.disclaimer}</p>

@@ -50,8 +50,11 @@ Windows'ta PowerShell ortam değişkeni örneği: `$env:MI_DATABASE_URL = "postg
 
 ## Sıradaki iş
 
-Faz 4 (kupon motoru) tamamlandı: `docs/06-faz4-raporu.md`. Sıradakiler:
-1. İlk yarı skor modeli ve İY piyasaları; maç sayfasından "kupona ekle".
-2. Faz 5 — sanal bakiye: çift kayıtlı defter (çekilemez, transfer edilemez), sabit tutar / yüzde /
-   kesirli Kelly (oran yoksa Kelly uygulanamaz), günlük risk ve işlem sınırı, drawdown, simüle ROI.
-   Kayıp kovalamayı teşvik eden özellik yok; sanal sonuç gerçek kazanç gibi gösterilmez.
+Faz 4 (kupon) ve Faz 5 (sanal portföy) tamamlandı: `docs/06-faz4-raporu.md`, `docs/07-faz5-raporu.md`.
+Sıradakiler:
+1. Faz 6 — FREE/PRO/ELITE plan hakları (backend'de kontrol, admin'den değiştirilebilir limitler),
+   abonelik yaşam döngüsü, ödeme sağlayıcı uyarlayıcıları (imzalı webhook, idempotent; canlı ödeme
+   M-G5 onayı olmadan kapalı), lisans anahtarları (HMAC + pepper).
+2. İlk yarı skor modeli ve İY piyasaları; maç sayfasından "kupona ekle".
+
+Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

@@ -46,3 +46,9 @@ export function ago(iso: string | null | undefined): string {
 
 export const num = (v: number | null | undefined, digits = 2) =>
   v === null || v === undefined ? "—" : v.toFixed(digits);
+
+/** Sanal birim (SB) — gerçek para değildir. API kuruş hassasiyetinde (minor) döner. */
+export const sb = (minor: number | null | undefined) =>
+  minor === null || minor === undefined
+    ? "—"
+    : `${(minor / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SB`;

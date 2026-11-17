@@ -20,6 +20,7 @@ kazanç garantisi vermez.
 4. [Faz 3 raporu](docs/04-faz3-raporu.md)
 5. [Arayüz raporu](docs/05-arayuz-raporu.md)
 6. [Faz 4 raporu — kupon motoru](docs/06-faz4-raporu.md)
+7. [Faz 5 raporu — sanal portföy](docs/07-faz5-raporu.md)
 
 ## Hızlı başlangıç
 

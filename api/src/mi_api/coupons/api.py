@@ -53,6 +53,7 @@ from mi_api.errors import ApiError
 from mi_api.football.api import TR
 from mi_api.football.models import Competition, Fixture, Season, Team
 from mi_api.predictions.models import Prediction
+from mi_api.virtual.service import settle_tickets
 
 DISCLAIMER = (
     "Kupon olasılıkları model tahminidir; kesin sonuç veya kazanç garantisi değildir. "
@@ -232,6 +233,9 @@ async def settle_coupons(db: AsyncSession, now: datetime) -> dict[str, int]:
             coupon.status = "won"
         coupon.settled_at = now
         coupons_settled += 1
+        await db.flush()
+        # Bu kupona bağlı sanal biletler (Faz 5) aynı işlemde sonuçlanır.
+        await settle_tickets(db, coupon, "void" in results, now)
     return {"legs": legs_settled, "coupons": coupons_settled}
 
 
