@@ -70,6 +70,19 @@ app.conf.update(
     },
 )
 
+if _settings.ml_schedule_enabled:
+    app.conf.beat_schedule.update(
+        {
+            # Şampiyon modelli kapsamlar, 7 günlük ufuk; değişmeyen maç yeniden yazılmaz.
+            "ml-predict": {
+                "task": "mi.ml.predict_active",
+                "schedule": 1800.0,
+                "options": {"queue": "ml"},
+            },
+            "ml-settle": {"task": "mi.ml.settle", "schedule": 3600.0, "options": {"queue": "ml"}},
+        }
+    )
+
 
 @signals.setup_logging.connect  # type: ignore[untyped-decorator]
 def _setup_logging(**_: Any) -> None:

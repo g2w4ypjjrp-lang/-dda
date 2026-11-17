@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     football_minute_budget: int = Field(default=10, ge=1)
     football_reserve_pct: int = Field(default=20, ge=0, le=90)
 
+    # Faz 3: zamanlayıcı ML görevlerini ("ml" kuyruğu) yalnızca bu açıksa planlar; bu görevleri
+    # ML işçisi (mi_ml.tasks, ayrı imaj) çalıştırır.
+    ml_schedule_enabled: bool = False
+
     log_level: str = "INFO"
     log_json: bool = True
 

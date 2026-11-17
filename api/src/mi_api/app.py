@@ -26,6 +26,7 @@ from mi_api.football.runtime import FootballRuntime
 from mi_api.guards import RequestGuard
 from mi_api.logs import RequestContext
 from mi_api.migrate import current_revision, head_revision
+from mi_api.predictions.api import create_predictions_router
 from mi_api.ratelimit import Limiter, MemoryLimiter, RedisLimiter
 
 
@@ -76,6 +77,7 @@ def create_app(
     app.include_router(create_auth_router())
     app.include_router(create_admin_router())
     app.include_router(create_football_router())
+    app.include_router(create_predictions_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

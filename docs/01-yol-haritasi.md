@@ -20,7 +20,7 @@ güvenlik → test → hata düzeltme → rapor. Bir faz, kabul kriterleri **ger
 ```
 api/        FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 + Redis   (Faz 1-)
             (Celery işçisi ve Beat programı api paketinde: mi_api.worker — Faz 2)
-ml/         Özellik mühendisliği, modeller, Optuna, kalibrasyon, backtest (Faz 3-)
+ml/         Özellik mühendisliği, modeller, Optuna, kalibrasyon, backtest, ML işçisi (Faz 3)
 web/        Next.js + TypeScript + Tailwind + shadcn/ui + TanStack Query (Faz 7-)
 deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştirme için)
 ```
@@ -37,8 +37,8 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 |---|---|---|
 | 1 | Teknik temel: mimari, veritabanı, kimlik doğrulama, MFA, RBAC, denetim kaydı, loglama | ✅ Tamamlandı ([rapor](02-faz1-raporu.md)) |
 | 2 | Futbol verileri: sağlayıcı uyarlayıcısı, lig/takım/maç/istatistik, canlı veri, veri kalitesi | ✅ Altyapı tamamlandı ([rapor](03-faz2-raporu.md)); gerçek veri M-G1 ile |
-| 3 | AI: özellik mühendisliği, modeller, Optuna, ensemble, kalibrasyon, belirsizlik, backtest | ⏭️ Sıradaki |
-| 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ⏳ |
+| 3 | AI: özellik mühendisliği, modeller, Optuna, ensemble, kalibrasyon, belirsizlik, backtest | ✅ Motor tamamlandı ([rapor](04-faz3-raporu.md)); gerçek metrikler M-G1 verisiyle |
+| 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ⏭️ Sıradaki |
 | 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ⏳ |
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ⏳ |
 | 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | ⏳ |
@@ -76,7 +76,9 @@ Uygulanan: [03-faz2-raporu.md](03-faz2-raporu.md). Aşağıdaki plan metni kayı
 Fiyat ve kota rakamları burada bilinçli olarak yazılmadı: sağlayıcılar sık değiştiriyor; seçim
 anında resmi sayfalardan doğrulanacak.
 
-### Faz 3 — AI
+### Faz 3 — AI ✅ (motor)
+Uygulanan: [04-faz3-raporu.md](04-faz3-raporu.md). Plan metni kayıt için korunmuştur.
+
 * Özellik deposu (point-in-time): her özellik yalnızca maç başlangıcından **önceki** veriden
   hesaplanır; sızıntı testi zorunlu (gelecekteki bir maçın sonucunu değiştirmek geçmiş özellikleri
   değiştirmemeli).

@@ -56,13 +56,48 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  ml:
+    name: ML (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mi_test
+          POSTGRES_PASSWORD: mi_test
+          POSTGRES_DB: mi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      MI_TEST_DATABASE_URL: postgresql://mi_test:mi_test@127.0.0.1:5432/mi_test
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest
+
   docker:
-    name: API imajı derlemesi
+    name: API ve ML imajı derlemesi
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t mi-api:ci api
+      - run: docker build -f ml/Dockerfile -t mi-ml:ci .
       - run: docker compose config --quiet
         env:
           MI_DB_PASSWORD: ci
@@ -82,3 +117,8 @@ jobs:
           python-version: "3.12"
       - run: uv export --locked --no-dev --no-hashes --no-emit-project -o requirements.txt
       - run: uvx pip-audit -r requirements.txt --strict
+      - name: ML bağımlılıkları
+        working-directory: ml
+        run: |
+          uv export --locked --no-dev --no-hashes --no-emit-project --no-emit-package mi-api -o requirements.txt
+          uvx pip-audit -r requirements.txt --strict
