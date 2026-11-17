@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, LogOut, Monitor, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { Crown, KeyRound, LogOut, Monitor, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
@@ -9,9 +9,10 @@ import { useEffect, useState } from "react";
 import { MatchRow } from "@/components/match";
 import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Skeleton, Stat } from "@/components/ui";
 import { api, post } from "@/lib/api";
-import { ago, fmtDateTime, trToday } from "@/lib/format";
+import { ORDER_STATUS, SUB_SOURCE, SUB_STATUS, ago, fmtDateTime, fmtDay, money, trToday } from "@/lib/format";
 import { useLogout, useMe } from "@/lib/hooks";
-import type { FixtureList, Me, Prediction } from "@/lib/types";
+import type { BillingMe, FixtureList, Me, Prediction } from "@/lib/types";
+import Link from "next/link";
 
 function MfaCard({ me }: { me: Me }) {
   const qc = useQueryClient();
@@ -84,6 +85,71 @@ function MfaCard({ me }: { me: Me }) {
           </>
         )}
         <FormError error={error} />
+      </div>
+    </Card>
+  );
+}
+
+const USAGE_LABELS: Record<string, [string, string]> = { "coupons.generate": ["Kupon üretimi", "coupons.daily_generate"] };
+
+function PlanCard({ billing }: { billing: BillingMe | undefined }) {
+  const qc = useQueryClient();
+  const [key, setKey] = useState("");
+  const redeem = useMutation({
+    mutationFn: () => post("/v1/billing/licenses/redeem", { key }),
+    onSuccess: () => { setKey(""); qc.invalidateQueries({ queryKey: ["billing"] }); },
+  });
+  if (!billing) return <Card><Skeleton className="m-5 h-32" /></Card>;
+  const cur = billing.current;
+  return (
+    <Card>
+      <CardHeader eyebrow="Üyelik" title={<span className="flex items-center gap-2"><Crown className="size-4 text-gold" aria-hidden />{billing.plan}</span>}
+        action={<Link href="/paketler" className="text-[12.5px] font-medium text-gold hover:underline">{billing.plan === "FREE" ? "Yükselt" : "Paketler"}</Link>} />
+      <div className="space-y-4 p-5 text-[12.5px]">
+        {cur ? (
+          <p className="text-text-2" data-testid="plan-period">
+            {SUB_SOURCE[cur.source]} ile · {fmtDay(cur.current_period_end)} tarihine kadar geçerli. Otomatik yenileme yoktur.
+          </p>
+        ) : (
+          <p className="text-muted">Ücretsiz paket: maç sonucu olasılıkları ve sanal portföy.</p>
+        )}
+        {Object.entries(USAGE_LABELS).map(([k, [label, limitKey]]) => {
+          const limit = Number(billing.entitlements[limitKey] ?? 0);
+          if (!limit) return null;
+          return <div key={k} className="flex justify-between"><span className="text-muted">Bugün {label.toLowerCase()}</span><span className="num">{billing.usage_today[k] ?? 0} / {limit}</span></div>;
+        })}
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); redeem.mutate(); }}>
+          <Input label="Lisans anahtarı" name="license" placeholder="MI-XXXX-XXXX-XXXX-XXXX" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} />
+          <Button size="sm" variant="secondary" type="submit" loading={redeem.isPending} disabled={key.trim().length < 10}>Anahtarı kullan</Button>
+          {redeem.isSuccess && <p className="text-teal">Lisans etkinleştirildi.</p>}
+          <FormError error={redeem.error} />
+        </form>
+        {billing.orders.length > 0 && (
+          <div>
+            <div className="eyebrow mb-1.5">Siparişler</div>
+            <ul className="space-y-1">
+              {billing.orders.slice(0, 5).map((o) => (
+                <li key={o.id} className="flex justify-between gap-2">
+                  <span className="truncate">#{o.number} · {o.plan}{o.test_mode ? " (test)" : ""}</span>
+                  <span className="shrink-0 text-muted">{money(o.amount_minor, o.currency)} · {ORDER_STATUS[o.status]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {billing.subscriptions.length > 0 && (
+          <div>
+            <div className="eyebrow mb-1.5">Abonelik geçmişi</div>
+            <ul className="space-y-1">
+              {billing.subscriptions.slice(0, 5).map((s) => (
+                <li key={s.id} className="flex justify-between gap-2">
+                  <span>{s.plan} · {SUB_SOURCE[s.source]}</span>
+                  <span className="text-muted">{SUB_STATUS[s.status]} · {fmtDay(s.current_period_end)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -177,6 +243,7 @@ export default function PanelPage() {
   const day = trToday();
   const fixtures = useQuery({ queryKey: ["fixtures", day], queryFn: () => api<FixtureList>(`/v1/football/fixtures?date=${day}`), enabled: !!me });
   const predictions = useQuery({ queryKey: ["predictions", day], queryFn: () => api<{ items: Prediction[] }>(`/v1/predictions?date=${day}`), enabled: !!me });
+  const billing = useQuery({ queryKey: ["billing", "me"], queryFn: () => api<BillingMe>("/v1/billing/me"), enabled: !!me });
 
   useEffect(() => {
     if (!isLoading && me === null) router.replace("/giris?next=/panel");
@@ -199,7 +266,7 @@ export default function PanelPage() {
       </div>
 
       <Card className="mt-6 grid grid-cols-2 gap-6 p-6 md:grid-cols-4">
-        <Stat label="Üyelik" value="FREE" hint="Ücretli paketler yakında" />
+        <Stat label="Üyelik" value={billing.data?.plan ?? "—"} tone={billing.data && billing.data.plan !== "FREE" ? "gold" : undefined} hint={billing.data?.current ? `${fmtDay(billing.data.current.current_period_end)} tarihine kadar` : "Ücretsiz paket"} />
         <Stat label="E-posta" value={me.email_verified ? "Doğrulandı" : "Bekliyor"} tone={me.email_verified ? "teal" : undefined} hint={me.email} />
         <Stat label="İki adımlı doğrulama" value={me.mfa_enabled ? "Açık" : "Kapalı"} tone={me.mfa_enabled ? "teal" : "red"} />
         <Stat label="Üyelik tarihi" value={fmtDateTime(me.created_at).split(" ").slice(0, 2).join(" ")} />
@@ -215,6 +282,7 @@ export default function PanelPage() {
           </div>
         </Card>
         <div className="space-y-6">
+          <PlanCard billing={billing.data} />
           <MfaCard me={me} />
           <SessionsCard />
           <DeleteAccount me={me} />

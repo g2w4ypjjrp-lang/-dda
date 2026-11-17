@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, Home, LayoutDashboard, LogIn, ShieldCheck, Ticket, Wallet } from "lucide-react";
+import { Activity, BarChart3, Crown, Home, LayoutDashboard, LogIn, ShieldCheck, Ticket, Wallet } from "lucide-react";
 
 import { Logo } from "./Logo";
 import { cx } from "./ui";
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/kuponlar", label: "Kupon Merkezi", icon: Ticket },
   { href: "/sanal", label: "Sanal Portföy", icon: Wallet },
   { href: "/performans", label: "Model Şeffaflığı", icon: BarChart3 },
+  { href: "/paketler", label: "Paketler", icon: Crown },
 ];
 
 function isActive(path: string, href: string) {
@@ -72,7 +73,7 @@ export function SiteHeader() {
       {/* Mobil alt gezinme: masaüstü menünün küçültülmüşü değil, başparmak erişimine göre. */}
       <nav aria-label="Mobil menü" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <div className="grid grid-cols-5">
-          {[...NAV.filter((n) => n.href !== "/sanal"), me ? { href: "/panel", label: "Panelim", icon: LayoutDashboard } : { href: "/giris", label: "Giriş", icon: LogIn }].map((n) => (
+          {[...NAV.filter((n) => n.href !== "/sanal" && n.href !== "/paketler"), me ? { href: "/panel", label: "Panelim", icon: LayoutDashboard } : { href: "/giris", label: "Giriş", icon: LogIn }].map((n) => (
             <Link
               key={n.href}
               href={n.href}

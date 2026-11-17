@@ -121,6 +121,8 @@ jobs:
       MI_SECRET_KEK: a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=
       MI_SESSION_COOKIE_SECURE: "false"
       MI_LOG_JSON: "false"
+      MI_PAYMENT_PROVIDER: simulator
+      MI_LICENSE_PEPPER: cGVwcGVycGVwcGVycGVwcGVycGVwcGVycGVwcGVycGU=
       MI_API_URL: http://127.0.0.1:8080
       E2E_API_DIR: ${{ github.workspace }}/api
       NEXT_TELEMETRY_DISABLED: "1"

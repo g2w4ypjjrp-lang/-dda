@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertCircle, BadgeCheck, Database, Info, Layers, Sigma } from "lucide-react";
+import { AlertCircle, BadgeCheck, Database, Info, Layers, Lock as LockIcon, Sigma } from "lucide-react";
+import Link from "next/link";
 
 import { fmtDateTime, pct } from "@/lib/format";
-import type { Prediction } from "@/lib/types";
+import type { Lock, Prediction } from "@/lib/types";
 import { Badge, Card, CardHeader, Empty, ProbBar, cx } from "./ui";
 
 const COMPONENT_LABELS: Record<string, string> = {
@@ -35,6 +36,19 @@ function MarketRow({ label, value }: { label: string; value: number }) {
         <div className="h-full rounded-full bg-cobalt" style={{ width: `${value * 100}%` }} />
       </div>
       <span className="num w-12 text-right text-[12.5px] font-semibold">{pct(value)}</span>
+    </div>
+  );
+}
+
+/** Paket kilidi: içerik sunucudan hiç gelmez; yalnızca neyin kilitli olduğu ve hangi paket gerektiği gösterilir. */
+export function LockedBox({ lock, className }: { lock: Lock; className?: string }) {
+  return (
+    <div className={cx("flex flex-col items-start gap-2 rounded-ctl border border-dashed border-line-strong bg-bg-elevated p-4", className)} data-testid="locked">
+      <div className="flex items-center gap-2 text-[12.5px] font-medium text-text-2">
+        <LockIcon className="size-3.5 text-gold" aria-hidden /> {lock.label}
+      </div>
+      <p className="text-[11.5px] text-muted">{lock.required_plan} paketinde açılır.</p>
+      <Link href="/paketler" className="text-[12px] font-medium text-gold hover:underline">Paketleri incele →</Link>
     </div>
   );
 }
@@ -77,6 +91,8 @@ export function PredictionPanel({ prediction, homeName, awayName }: { prediction
   const rel = prediction.reliability;
   const dq = prediction.data_quality;
   const agreement = prediction.model_agreement;
+  const locked = new Map((prediction.access?.locked ?? []).map((l) => [l.key, l]));
+  const marketsLock = locked.get("predictions.markets");
 
   return (
     <Card>
@@ -105,9 +121,10 @@ export function PredictionPanel({ prediction, homeName, awayName }: { prediction
           <Metric icon={BadgeCheck} label="Model güvenilirliği" value={rel.label} tone={rel.level === "high" ? "teal" : rel.level === "medium" ? "gold" : "amber"} hint="Test dönemi kalibrasyonu" />
           <Metric icon={Database} label="Veri kalitesi" value={`${hist(dq.home_history)} / ${hist(dq.away_history)} maç`} hint={dq.lineups_known ? "İlk 11 açıklandı" : "İlk 11 bekleniyor"} />
           <Metric icon={Layers} label="Modeller arası uyum" value={agreement === null ? "—" : agreement <= 0.08 ? "İyi" : agreement <= 0.15 ? "Orta" : "Zayıf"} hint={agreement === null ? undefined : `En büyük fark ${pct(agreement)}`} />
-          <Metric icon={Sigma} label="Beklenen gol" value={`${p.expected_goals.home.toFixed(2)} – ${p.expected_goals.away.toFixed(2)}`} hint="Skor modeline göre" />
+          <Metric icon={Sigma} label="Beklenen gol" value={p.expected_goals ? `${p.expected_goals.home.toFixed(2)} – ${p.expected_goals.away.toFixed(2)}` : "Kilitli"} hint={p.expected_goals ? "Skor modeline göre" : "PRO paketinde"} />
         </div>
 
+        {p.double_chance && p.over_under && p.btts && p.correct_score ? (
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <div className="eyebrow mb-2">Piyasalar</div>
@@ -129,6 +146,9 @@ export function PredictionPanel({ prediction, homeName, awayName }: { prediction
             </div>
           </div>
         </div>
+        ) : marketsLock ? (
+          <LockedBox lock={marketsLock} />
+        ) : null}
 
         {Object.keys(prediction.components).length > 0 && (
           <details className="rounded-ctl border border-line bg-bg-elevated px-4 py-3">
@@ -149,6 +169,10 @@ export function PredictionPanel({ prediction, homeName, awayName }: { prediction
               </p>
             </div>
           </details>
+        )}
+
+        {locked.has("predictions.components") && Object.keys(prediction.components).length === 0 && (
+          <LockedBox lock={locked.get("predictions.components")!} />
         )}
 
         <p className="flex items-start gap-2 text-[11.5px] leading-relaxed text-muted">

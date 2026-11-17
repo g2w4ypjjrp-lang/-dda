@@ -52,3 +52,24 @@ export const sb = (minor: number | null | undefined) =>
   minor === null || minor === undefined
     ? "—"
     : `${(minor / 100).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SB`;
+
+/** Para tutarı (kuruş → "199,00 ₺"). Yalnızca gerçek fiyat/sipariş kayıtları için. */
+export const money = (minor: number | null | undefined, currency = "TRY") =>
+  minor === null || minor === undefined
+    ? "—"
+    : (minor / 100).toLocaleString("tr-TR", { style: "currency", currency, minimumFractionDigits: 2 });
+
+export const ORDER_STATUS: Record<string, string> = {
+  pending: "Ödeme bekleniyor",
+  paid: "Ödendi",
+  failed: "Başarısız",
+  refunded: "İade edildi",
+  review: "İncelemede",
+};
+
+export const SUB_SOURCE: Record<string, string> = { payment: "Ödeme", license: "Lisans", admin: "Yönetici" };
+export const SUB_STATUS: Record<string, string> = { active: "Etkin", canceled: "İptal (dönem sonuna kadar)", refunded: "İade", revoked: "Sonlandırıldı" };
+
+/** "17 Aralık 2026" — dönem bitişi gibi yıl içeren tarihler için. */
+export const fmtDay = (iso: string) =>
+  new Intl.DateTimeFormat("tr-TR", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));

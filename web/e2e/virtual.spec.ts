@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { grantPlan } from "./support";
+
 const PASSWORD = "E2e-Guclu-Parola-2026";
 
 async function loginNew(page: Page, prefix: string) {
@@ -7,6 +9,7 @@ async function loginNew(page: Page, prefix: string) {
   const email = `${prefix}-${Date.now()}@ornek.com`;
   const origin = new URL(page.url()).origin;
   expect((await page.request.post("/v1/auth/register", { data: { email, password: PASSWORD, display_name: "Sanal Test", accept_terms: true }, headers: { Origin: origin } })).status()).toBe(202);
+  grantPlan(email, "PRO");
   expect((await page.request.post("/v1/auth/login", { data: { email, password: PASSWORD }, headers: { Origin: origin } })).status()).toBe(200);
 }
 

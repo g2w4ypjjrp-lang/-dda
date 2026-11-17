@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { grantPlan } from "./support";
+
 const PASSWORD = "E2e-Guclu-Parola-2026";
 
 test("kupon merkezi: giriş → kupon oluştur → kaydet → geçmiş", async ({ page }) => {
@@ -12,6 +14,7 @@ test("kupon merkezi: giriş → kupon oluştur → kaydet → geçmiş", async (
     headers: { Origin: new URL(page.url()).origin },
   });
   expect(reg.status()).toBe(202);
+  grantPlan(email, "PRO"); // kupon oluşturucu PRO paketinde
   await page.goto("/giris?next=/kuponlar");
   await page.getByLabel("E-posta").fill(email);
   await page.getByLabel("Parola").fill(PASSWORD);

@@ -59,13 +59,16 @@ export type OneXTwo = { home: number; draw: number; away: number };
 
 export interface Markets {
   "1x2": OneXTwo;
-  double_chance: { "1X": number; "12": number; X2: number };
-  over_under: Record<string, { over: number; under: number }>;
-  btts: { yes: number; no: number };
-  total_goals: Record<string, number>;
-  correct_score: { home: number; away: number; p: number }[];
-  expected_goals: { home: number; away: number };
+  // FREE pakette yalnızca 1x2 gelir (kısıt sunucuda uygulanır).
+  double_chance?: { "1X": number; "12": number; X2: number };
+  over_under?: Record<string, { over: number; under: number }>;
+  btts?: { yes: number; no: number };
+  total_goals?: Record<string, number>;
+  correct_score?: { home: number; away: number; p: number }[];
+  expected_goals?: { home: number; away: number };
 }
+
+export interface Lock { key: string; label: string; required_plan: "PRO" | "ELITE" }
 
 export interface Prediction {
   id: number;
@@ -85,6 +88,7 @@ export interface Prediction {
   model: { version_id: number; status: string; trained_until: string; components: Record<string, number> };
   outcome: { home_goals: number; away_goals: number; result: string; brier: number | null; log_loss: number | null } | null;
   disclaimer: string;
+  access?: { plan: string; locked: Lock[] };
 }
 
 export interface Performance {
@@ -118,4 +122,56 @@ export interface AdminMe {
   permissions: string[];
   reauth_fresh: boolean;
   session_expires_at: string;
+}
+
+/* --- Faz 6: paketler ve ödeme --- */
+
+export type Entitlements = Record<string, boolean | number>;
+
+export interface PlanInfo {
+  code: "FREE" | "PRO" | "ELITE";
+  name: string;
+  tagline: string;
+  entitlements: Entitlements;
+  prices: Partial<Record<"monthly" | "yearly", { id: number; amount_minor: number; currency: string }>>;
+}
+
+export interface Sales { open: boolean; provider: string | null; test_mode: boolean }
+
+export interface PlansResponse { plans: PlanInfo[]; labels: Record<string, string>; sales: Sales; note: string }
+
+export interface Order {
+  id: string;
+  number: number;
+  plan: string;
+  period: "monthly" | "yearly";
+  amount_minor: number;
+  currency: string;
+  status: "pending" | "paid" | "failed" | "refunded" | "review";
+  provider: string;
+  test_mode: boolean;
+  created_at: string;
+  paid_at: string | null;
+  refunded_at: string | null;
+}
+
+export interface SubscriptionInfo {
+  id: number;
+  plan: string;
+  status: "active" | "canceled" | "refunded" | "revoked";
+  source: "payment" | "license" | "admin";
+  started_at: string;
+  current_period_end: string;
+  in_effect: boolean;
+  canceled_at: string | null;
+}
+
+export interface BillingMe {
+  plan: "FREE" | "PRO" | "ELITE";
+  entitlements: Entitlements;
+  usage_today: Record<string, number>;
+  current: SubscriptionInfo | null;
+  subscriptions: SubscriptionInfo[];
+  orders: Order[];
+  sales: Sales;
 }

@@ -166,9 +166,11 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 export function FormError({ error }: { error: unknown }) {
   if (!error) return null;
   const message = error instanceof ApiError ? error.message : "Beklenmeyen bir hata oluştu.";
+  const upgrade = error instanceof ApiError && ["plan_required", "plan_limit", "daily_limit"].includes(error.code);
   return (
     <div role="alert" className="rounded-ctl border border-red/30 bg-red-soft px-3.5 py-2.5 text-[13px] text-text">
       {message}
+      {upgrade && <> <a href="/paketler" className="font-medium text-gold hover:underline">Paketleri incele →</a></>}
     </div>
   );
 }

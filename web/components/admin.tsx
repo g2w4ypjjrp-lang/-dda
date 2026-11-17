@@ -2,8 +2,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Database, FileClock, LayoutGrid, LogOut,
-  ShieldCheck, Users,
+  Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Crown, Database, FileClock, LayoutGrid, LogOut,
+  ShieldCheck, Users, Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -20,6 +20,8 @@ const NAV = [
   { href: "/yonetim/veri", label: "Futbol Veri Merkezi", icon: Database, perm: "football.read" },
   { href: "/yonetim/modeller", label: "Model Lab", icon: BrainCircuit, perm: "models.read" },
   { href: "/yonetim/kullanicilar", label: "Kullanıcılar", icon: Users, perm: "users.read" },
+  { href: "/yonetim/abonelikler", label: "Paketler & Abonelikler", icon: Crown, perm: "subscriptions.read" },
+  { href: "/yonetim/finans", label: "Finans & Lisanslar", icon: Wallet, perm: "finance.read" },
   { href: "/yonetim/denetim", label: "Denetim Kaydı", icon: FileClock, perm: "audit.read" },
 ] as const;
 
