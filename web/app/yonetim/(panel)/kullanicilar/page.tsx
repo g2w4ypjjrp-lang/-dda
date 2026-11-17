@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 
-import { PageTitle, Table, can, useAdmin, useGuard } from "@/components/admin";
+import { ApprovalSent, PageTitle, Table, can, useAdmin, useGuard } from "@/components/admin";
 import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Skeleton } from "@/components/ui";
 import { api, post, put } from "@/lib/api";
 import { fmtDateTime } from "@/lib/format";
@@ -57,6 +57,7 @@ function UserPanel({ id, onChanged }: { id: string; onChanged: () => void }) {
         {roles && <Button size="sm" loading={saveRoles.isPending} onClick={() => saveRoles.mutate(roles)}>Rolleri kaydet</Button>}
         {!u.mfa_enabled && <p className="text-[11.5px] text-amber">Rol atanabilmesi için kullanıcı iki adımlı doğrulamayı açmalı.</p>}
         <FormError error={saveRoles.error} />
+        <ApprovalSent data={saveRoles.data} />
       </div>
       <div className="text-[12px]">
         {can(me, "data.explore") && (

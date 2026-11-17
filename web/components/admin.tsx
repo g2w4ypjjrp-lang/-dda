@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Coins, Crown, Database, FileClock, HeartPulse,
-  KeyRound, LayoutGrid, LogOut, Newspaper, Palette, Search, ShieldAlert, ShieldCheck, Siren, TableProperties, Ticket, ToggleRight, Users,
+  ClipboardCheck, HardDrive, KeyRound, LayoutGrid, LogOut, Newspaper, Palette, Search, ShieldAlert, ShieldCheck, Siren, TableProperties, Ticket, ToggleRight, Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import { Badge, Button, FormError, Input, Skeleton, cx } from "./ui";
 export const NAV = [
   { group: "Genel", href: "/yonetim", label: "Command Center", icon: LayoutGrid, perm: null },
   { group: "Genel", href: "/yonetim/aksiyon", label: "Action Center", icon: Siren, perm: null },
+  { group: "Genel", href: "/yonetim/onaylar", label: "Onaylar (dört göz)", icon: ClipboardCheck, perm: null },
   { group: "Operasyon", href: "/yonetim/veri", label: "Futbol Veri Merkezi", icon: Database, perm: "football.read" },
   { group: "Operasyon", href: "/yonetim/modeller", label: "Model Lab", icon: BrainCircuit, perm: "models.read" },
   { group: "Operasyon", href: "/yonetim/kuponlar", label: "Kupon Yönetimi", icon: Ticket, perm: "coupons.read" },
@@ -32,6 +33,7 @@ export const NAV = [
   { group: "Kullanıcı & Güvenlik", href: "/yonetim/denetim", label: "Denetim Kaydı", icon: FileClock, perm: "audit.read" },
   { group: "Platform", href: "/yonetim/veri-gezgini", label: "Data Explorer", icon: TableProperties, perm: "data.explore" },
   { group: "Platform", href: "/yonetim/sistem", label: "Sistem Sağlığı", icon: HeartPulse, perm: "system.read" },
+  { group: "Platform", href: "/yonetim/yedekler", label: "Yedekler", icon: HardDrive, perm: "system.read" },
   { group: "Platform", href: "/yonetim/bayraklar", label: "Özellik Bayrakları", icon: ToggleRight, perm: null },
   { group: "Platform", href: "/yonetim/tasarim", label: "Design Studio", icon: Palette, perm: "design.read" },
   { group: "Platform", href: "/yonetim/icerik", label: "İçerik & Duyurular", icon: Newspaper, perm: null },
@@ -220,4 +222,19 @@ export function RunStatus({ s }: { s: string }) {
   if (s === "failed") return <Badge tone="red"><AlertTriangle className="size-3" aria-hidden />Hata</Badge>;
   if (s === "skipped") return <Badge tone="amber"><CircleDashed className="size-3" aria-hidden />Atlandı</Badge>;
   return <Badge><Clock className="size-3" aria-hidden />Sürüyor</Badge>;
+}
+
+/** Dört göz kuralı açıkken kritik uçlar 202 + {approval} döner: işlem yapılmadı, onaya gitti. */
+export interface ApprovalPending { approval: { id: number; status: "pending"; expires_at: string }; detail: string }
+export const isApprovalPending = (x: unknown): x is ApprovalPending =>
+  !!x && typeof x === "object" && "approval" in x && !!(x as ApprovalPending).approval?.id;
+
+export function ApprovalSent({ data }: { data: unknown }) {
+  if (!isApprovalPending(data)) return null;
+  return (
+    <div role="status" data-testid="approval-sent" className="mt-2 rounded-ctl border border-amber/40 bg-amber/10 px-3 py-2 text-[12.5px] text-text-2">
+      İşlem yapılmadı: dört göz kuralı açık, talep <b>#{data.approval.id}</b> ikinci bir yöneticinin onayına gönderildi.{" "}
+      <Link href="/yonetim/onaylar" className="font-medium text-gold underline-offset-2 hover:underline">Onaylar</Link>
+    </div>
+  );
 }

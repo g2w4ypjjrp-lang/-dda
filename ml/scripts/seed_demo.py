@@ -143,13 +143,24 @@ def main() -> None:
                 insert(kickoff.astimezone(UTC), h, a, "finished", "FT", sample(h, a))
 
         # Bugün: 2 bitmiş (istatistikli), 1 canlı, 3 yaklaşan; yarın: 3 yaklaşan.
+        # Türkiye saatiyle geç saatte (18:00 sonrası) "bugün" yaklaşan maça yer kalmaz; o zaman
+        # yaklaşan maçlar yarın ve ertesi gün öğleden sonraya konur (yarın: tahmini yayımlanan
+        # üçlü; kupon testleri "Yarın"ı dener). Testler saatten bağımsız olsun diye.
+        if datetime.now(ZoneInfo("Europe/Istanbul")).hour < 18:
+            soon = [now + timedelta(hours=h) for h in (2, 3, 4)]
+            later = [now + timedelta(days=1, hours=h) for h in (1, 2, 3)]
+        else:
+            soon = [
+                (tr_midnight + timedelta(days=2, hours=h)).astimezone(UTC) for h in (15, 16, 17)
+            ]
+            later = [
+                (tr_midnight + timedelta(days=1, hours=h)).astimezone(UTC) for h in (15, 16, 17)
+            ]
         today = [
             (now - timedelta(hours=5), 0, 1, "finished"), (now - timedelta(hours=3), 2, 3, "finished"),
             (now - timedelta(minutes=55), 4, 5, "live"),
-            (now + timedelta(hours=2), 6, 7, "scheduled"), (now + timedelta(hours=3), 8, 9, "scheduled"),
-            (now + timedelta(hours=4), 10, 11, "scheduled"),
-            (now + timedelta(days=1, hours=1), 1, 0, "scheduled"), (now + timedelta(days=1, hours=2), 3, 2, "scheduled"),
-            (now + timedelta(days=1, hours=3), 5, 4, "scheduled"),
+            (soon[0], 6, 7, "scheduled"), (soon[1], 8, 9, "scheduled"), (soon[2], 10, 11, "scheduled"),
+            (later[0], 1, 0, "scheduled"), (later[1], 3, 2, "scheduled"), (later[2], 5, 4, "scheduled"),
         ]  # fmt: skip
         for kickoff, h, a, status in today:
             score = sample(h, a) if status != "scheduled" else None

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy } from "lucide-react";
 import { useState } from "react";
 
-import { PageTitle, Table, can, useAdmin, useGuard } from "@/components/admin";
+import { ApprovalSent, PageTitle, Table, can, useAdmin, useGuard } from "@/components/admin";
 import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Notice, Skeleton, Stat } from "@/components/ui";
 import { api, post } from "@/lib/api";
 import { ORDER_STATUS, fmtDateTime, fmtDay, money } from "@/lib/format";
@@ -142,7 +142,7 @@ export default function FinancePage() {
             ))}
           </Table>
         )}
-        <div className="px-5 pb-4"><FormError error={refund.error} /></div>
+        <div className="px-5 pb-4"><FormError error={refund.error} /><ApprovalSent data={refund.data} /></div>
       </Card>
       {can(me, "licenses.read") && <Licenses />}
     </>

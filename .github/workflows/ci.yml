@@ -172,6 +172,22 @@ jobs:
         env:
           MI_DB_PASSWORD: ci
           MI_SECRET_KEK: Y2ljaWNpY2ljaWNpY2ljaWNpY2ljaWNpY2ljaWNpY2k=
+      - name: Üretim yığını yapılandırması (docker-compose.prod.yml, tüm profiller)
+        run: |
+          cp .env.prod.example .env.prod
+          docker compose -f docker-compose.prod.yml --env-file .env.prod --profile ml --profile monitoring config --quiet
+        env:
+          MI_DOMAIN: ci.invalid
+          MI_ACME_EMAIL: ci@ci.invalid
+      - name: Caddyfile doğrulama
+        run: >
+          docker run --rm -e MI_DOMAIN=ci.invalid -e MI_ACME_EMAIL=ci@ci.invalid
+          -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.10
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Prometheus uyarı kuralları
+        run: >
+          docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/p:ro"
+          prom/prometheus:v3.5.0 check rules /p/alerts.yml
 
   audit:
     name: Bağımlılık açığı taraması

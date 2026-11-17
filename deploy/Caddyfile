@@ -1,0 +1,37 @@
+# Match Intelligence AI — kenar vekili (TLS). Sertifika Let's Encrypt ile otomatik alınır/yenilenir.
+# Gerekli ortam: MI_DOMAIN (ör. ornek.com.tr), MI_ACME_EMAIL. DNS A/AAAA kaydı bu sunucuyu göstermeli.
+{
+	email {$MI_ACME_EMAIL}
+}
+
+{$MI_DOMAIN} {
+	encode zstd gzip
+
+	# İç izleme ucu dışarı açılmaz (Prometheus iç ağdan api:8080/metrics okur).
+	@internal path /metrics /metrics/* /docs /openapi.json
+	respond @internal 404
+
+	request_body {
+		max_size 1MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+		-X-Powered-By
+	}
+
+	# Web, /v1 ve /admin/v1 isteklerini API'ye kendisi vekil eder (aynı köken, birinci taraf çerez).
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+www.{$MI_DOMAIN} {
+	redir https://{$MI_DOMAIN}{uri} permanent
+}

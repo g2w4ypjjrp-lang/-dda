@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Info, Siren } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { PageTitle, can, useAdmin, useGuard } from "@/components/admin";
+import { ApprovalSent, PageTitle, can, isApprovalPending, useAdmin, useGuard } from "@/components/admin";
 import { Badge, Button, Card, Empty, ErrorState, FormError, Input, Skeleton, cx } from "@/components/ui";
 import { api, post } from "@/lib/api";
 import { ago, fmtDateTime } from "@/lib/format";
@@ -25,7 +25,7 @@ function ReviewOrder({ number, onDone }: { number: number; onDone: () => void })
   const [note, setNote] = useState("");
   const resolve = useMutation({
     mutationFn: (action: "approve" | "refund") => guard(() => post(`/admin/v1/billing/orders/${number}/resolve`, { action, note, confirm: true })),
-    onSuccess: onDone,
+    onSuccess: (data) => { if (!isApprovalPending(data)) onDone(); },
   });
   return (
     <div className="mt-3 space-y-2 rounded-ctl border border-line bg-bg-elevated p-3">
@@ -37,6 +37,7 @@ function ReviewOrder({ number, onDone }: { number: number; onDone: () => void })
           onClick={() => { if (window.confirm(`#${number}: ödeme sağlayıcı üzerinden iade edilsin mi?`)) resolve.mutate("refund"); }}>İade et</Button>
       </div>
       <FormError error={resolve.error} />
+      <ApprovalSent data={resolve.data} />
     </div>
   );
 }

@@ -43,8 +43,8 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ✅ Tamamlandı ([rapor](08-faz6-raporu.md)); canlı ödeme M-G5 ile |
 | 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | ✅ Tamamlandı ([arayüz](05-arayuz-raporu.md), [kalanlar](12-faz7-raporu.md)); e-posta/push M-G6 ile |
 | 8 | 10 premium tasarım sistemi + Design Studio (önizleme, taslak, yayın, sürüm, geri alma) | ✅ Tamamlandı ([rapor](10-faz8-raporu.md)) |
-| 9 | Super Admin: Command Center, 30 modül, Data Explorer, Action Center, Ctrl+K | ✅ Çekirdek tamamlandı ([rapor](11-faz9-raporu.md)); içerik/bildirim/API/yedek modülleri Faz 7 ve 10 ile |
-| 10 | Son testler: E2E, güvenlik, performans, yedek/geri yükleme, CI/CD, dağıtım | ⏳ |
+| 9 | Super Admin: Command Center, 30 modül, Data Explorer, Action Center, Ctrl+K | ✅ Tamamlandı ([rapor](11-faz9-raporu.md)); içerik/bildirim Faz 7, onaylar/yedekler Faz 10 ile |
+| 10 | Son testler: E2E, güvenlik, performans, yedek/geri yükleme, CI/CD, dağıtım | ✅ Tamamlandı ([rapor](13-faz10-raporu.md), [çalıştırma kılavuzu](calistirma-kilavuzu.md)); gerçek dağıtım M-G3 ile |
 
 ### Faz 1 — Teknik temel ✅
 Çıktılar ve test sonuçları: [02-faz1-raporu.md](02-faz1-raporu.md).
@@ -118,6 +118,8 @@ tasarım yapılandırmasını sürümlü JSON olarak saklar (taslak → önizlem
 30 modül; Command Center metrikleri yalnızca gerçek kaynaktan, veri yoksa "veri yok" gösterir.
 Kritik işlemlerde MFA + yeniden doğrulama + (gerekirse) ikinci yönetici onayı.
 
-### Faz 10 — Yayın öncesi
-Playwright E2E (masaüstü/tablet/telefon), axe erişilebilirlik, Lighthouse, yük testi, yedekten
-geri yükleme tatbikatı, CI/CD, dağıtım belgesi.
+### Faz 10 — Yayın öncesi ✅
+Dört göz onayı, yedekleme + gerçek geri yükleme doğrulaması, Prometheus /metrics ve uyarı kuralları,
+her rotayı dolaşan otomatik güvenlik taraması, bağımlılık denetimi, yük testi, EXPLAIN ile indeks
+incelemesi, görsel karşılaştırma testleri, üretim yığını (Caddy TLS) ve çalıştırma kılavuzu.
+Ayrıntı ve açık kalanlar: [Faz 10 raporu](13-faz10-raporu.md).

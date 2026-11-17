@@ -1,0 +1,57 @@
+# Match Intelligence AI uyarı kuralları (/metrics ölçülerine dayanır; bkz. api/src/mi_api/ops/prom.py).
+groups:
+  - name: match-intelligence
+    rules:
+      - alert: MiScrapeFailed
+        expr: up{job="match-intelligence-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "API /metrics okunamıyor (API kapalı ya da jeton hatalı)" }
+      - alert: MiComponentDown
+        expr: mi_component_up == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Bileşen sağlıksız: {{ $labels.component }}" }
+      - alert: MiServerErrors
+        expr: mi_http_errors_5xx{window="5m"} > 5
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Son 5 dakikada {{ $value }} sunucu hatası (5xx)" }
+      - alert: MiSlowResponses
+        expr: mi_http_latency_avg_ms{window="5m"} > 500
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Ortalama yanıt süresi {{ $value }} ms" }
+      - alert: MiWorkerHeartbeatStale
+        expr: mi_worker_heartbeat_age_seconds > 300
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "İşçi/zamanlayıcı kalp atışı {{ $value }} sn önce" }
+      - alert: MiWorkerHeartbeatMissing
+        expr: absent(mi_worker_heartbeat_age_seconds) and on() up{job="match-intelligence-api"} == 1
+        for: 10m
+        labels: { severity: critical }
+        annotations: { summary: "İşçi kalp atışı hiç alınmadı" }
+      - alert: MiQueueBacklog
+        expr: mi_queue_depth > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Kuyrukta {{ $value }} iş bekliyor" }
+      - alert: MiBackupNotConfigured
+        expr: mi_backup_configured == 0
+        for: 1h
+        labels: { severity: critical }
+        annotations: { summary: "Yedekleme yapılandırılmamış (MI_BACKUP_DIR)" }
+      - alert: MiBackupStale
+        expr: time() - mi_backup_last_success_timestamp_seconds > 26 * 3600
+        labels: { severity: critical }
+        annotations: { summary: "Son 26 saatte başarılı yedek yok" }
+      - alert: MiBackupVerifyFailed
+        expr: mi_backup_last_verify_ok == 0
+        labels: { severity: critical }
+        annotations: { summary: "Son yedeğin geri yükleme doğrulaması başarısız" }
+      - alert: MiApprovalsWaiting
+        expr: mi_approvals_pending > 0
+        for: 12h
+        labels: { severity: warning }
+        annotations: { summary: "{{ $value }} dört göz talebi 12 saattir bekliyor (24 saatte düşer)" }

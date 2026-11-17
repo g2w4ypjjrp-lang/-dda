@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { PageTitle, can, useAdmin, useGuard } from "@/components/admin";
+import { ApprovalSent, PageTitle, can, useAdmin, useGuard } from "@/components/admin";
 import { Badge, Button, Card, ErrorState, FormError, Skeleton } from "@/components/ui";
 import { api, put } from "@/lib/api";
 import { ago } from "@/lib/format";
@@ -28,6 +28,7 @@ function FlagRow({ f, editable }: { f: Flag; editable: boolean }) {
             value={message} onChange={(e) => setMessage(e.target.value)} className="mt-2 h-8 w-full max-w-lg rounded-ctl border border-line bg-bg-elevated px-2 text-[12.5px]" />
         )}
         <FormError error={m.error} />
+        <ApprovalSent data={m.data} />
       </div>
       {editable && (
         <Button size="sm" variant={f.enabled ? "secondary" : "primary"} loading={m.isPending}

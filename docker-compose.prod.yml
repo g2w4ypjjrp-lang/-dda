@@ -1,0 +1,141 @@
+# Match Intelligence AI — üretim yığını. Yalnızca M-G3 (dağıtım/alan adı) onayından sonra kullanılır.
+#
+#   cp .env.prod.example .env.prod   (gizli değerleri gizli bilgi deposundan doldurun; git'e girmez)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# PostgreSQL 16 ve Redis 7 yönetilen hizmettir (TLS zorunlu: sslmode=verify-full, rediss://);
+# uygulama üretimde bu koşullar sağlanmazsa açılmaz (mi_api.config). Ayrıntılar:
+# docs/calistirma-kilavuzu.md
+name: match-intelligence
+
+x-api: &api
+  image: ${MI_IMAGE_PREFIX:-mi}-api:${MI_VERSION:-latest}
+  build: ./api
+  env_file: .env.prod
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  volumes:
+    # Yönetilen PostgreSQL'in CA sertifikası (sslmode=verify-full için).
+    - ./deploy/secrets/pg-ca.pem:/etc/mi/pg-ca.pem:ro
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      MI_DOMAIN: ${MI_DOMAIN:?MI_DOMAIN gerekli}
+      MI_ACME_EMAIL: ${MI_ACME_EMAIL:?MI_ACME_EMAIL gerekli}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge: { ipv4_address: 172.30.10.2 }
+    depends_on: [web]
+
+  web:
+    image: ${MI_IMAGE_PREFIX:-mi}-web:${MI_VERSION:-latest}
+    build:
+      context: ./web
+      args: { MI_API_URL: "http://api:8080" }
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp, /app/.next/cache]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks:
+      # API yalnızca bu adresten gelen X-Forwarded-For'a güvenir (MI_TRUSTED_PROXIES).
+      edge: { ipv4_address: 172.30.10.3 }
+    depends_on:
+      api: { condition: service_healthy }
+
+  migrate:
+    <<: *api
+    command: ["mi-admin", "migrate"]
+    restart: "no"
+    networks: [edge]
+
+  api:
+    <<: *api
+    environment:
+      MI_ENVIRONMENT: production
+      MI_TRUSTED_PROXIES: '["172.30.10.3"]'
+    networks:
+      edge: { ipv4_address: 172.30.10.4 }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    <<: *api
+    command: ["celery", "-A", "mi_api.worker", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      MI_ENVIRONMENT: production
+      MI_BACKUP_DIR: /backups
+    volumes:
+      - ./deploy/secrets/pg-ca.pem:/etc/mi/pg-ca.pem:ro
+      # Yedekler: bu birim ayrıca sunucu dışına (başka disk/bölge) eşitlenmelidir.
+      - backups:/backups
+    healthcheck:
+      test: ["CMD", "celery", "-A", "mi_api.worker", "inspect", "ping", "--timeout", "5"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+    networks: [edge]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  beat:
+    <<: *api
+    command: ["celery", "-A", "mi_api.worker", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    environment:
+      MI_ENVIRONMENT: production
+    healthcheck:
+      disable: true
+    networks: [edge]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # ML işçisi (tahmin + sonuçlandırma): MI_ML_SCHEDULE_ENABLED=true ve --profile ml ile.
+  ml-worker:
+    profiles: ["ml"]
+    image: ${MI_IMAGE_PREFIX:-mi}-ml:${MI_VERSION:-latest}
+    build: { context: ., dockerfile: ml/Dockerfile }
+    env_file: .env.prod
+    environment:
+      MI_ENVIRONMENT: production
+    volumes:
+      - ./deploy/secrets/pg-ca.pem:/etc/mi/pg-ca.pem:ro
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [edge]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # İzleme (isteğe bağlı): --profile monitoring. Dışarı port açmaz; Grafana/uyarı yöneticisi ayrıca.
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./deploy/prometheus/mi_metrics_token:/etc/prometheus/mi_metrics_token:ro
+      - prometheus:/prometheus
+    networks: [edge]
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+
+volumes:
+  caddy_data:
+  caddy_config:
+  backups:
+  prometheus:

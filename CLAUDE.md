@@ -65,8 +65,13 @@ eklerken `plan_entitlements` anahtarı + `ENTITLEMENTS` tipi + `LOCK_LABELS` + g
 Testlerde ücretli kullanıcı: `conftest.member(...)`; E2E'de `e2e/support.ts` → `grantPlan`.
 Canlı ödeme (M-G5) kullanıcı onayı olmadan açılmaz.
 
-Sıradakiler:
-1. Faz 10: güvenlik testleri, performans, görsel regresyon, yedek/geri yükleme, dağıtım (M-G3),
-   dört göz onayı, merkezi log/izleme.
+Faz 10 (yayın öncesi): `docs/13-faz10-raporu.md`, üretim: `docs/calistirma-kilavuzu.md`.
+Dört göz: kritik işlem eklerken `mi_api/ops/approvals.py` → `ACTIONS` yürütücüsü + uçta `approvals.submit`
+(202 döner; web'de `ApprovalSent`). Yedek: `mi_api/ops/backup.py` + `mi-admin backup/backup-verify/restore`.
+Yeni rota eklerken `tests/test_security_sweep.py` otomatik kapsar; herkese açık rota bilinçli olarak
+`PUBLIC` listesine eklenmeli. `/metrics` jetonla (`MI_METRICS_TOKEN`).
+
+Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 dağıtım,
+M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

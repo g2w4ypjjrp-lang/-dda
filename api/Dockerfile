@@ -22,7 +22,7 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends postgresql-client-16 \
  && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-RUN useradd --system --uid 10001 --home /app mi
+RUN useradd --system --uid 10001 --home /app mi && install -d -o mi -g mi -m 0700 /backups
 WORKDIR /app
 COPY --from=build --chown=mi:mi /app /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1

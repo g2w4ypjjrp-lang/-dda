@@ -27,6 +27,8 @@ kazanç garantisi vermez.
 10. [Faz 8 raporu — on tasarım ve Design Studio](docs/10-faz8-raporu.md)
 11. [Faz 9 raporu — süper yönetici modülleri](docs/11-faz9-raporu.md)
 12. [Faz 7 kalanları — kişisel panel, bildirimler, içerik, PWA](docs/12-faz7-raporu.md)
+13. [Faz 10 raporu — yayın öncesi: güvenlik, yedek, izleme, dağıtım](docs/13-faz10-raporu.md)
+14. [Çalıştırma kılavuzu (üretim)](docs/calistirma-kilavuzu.md)
 
 ## Hızlı başlangıç
 
