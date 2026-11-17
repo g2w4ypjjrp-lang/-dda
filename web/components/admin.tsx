@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Crown, Database, FileClock, LayoutGrid, LogOut,
-  ShieldCheck, Users, Wallet,
+  Palette, ShieldCheck, Users, Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ const NAV = [
   { href: "/yonetim/kullanicilar", label: "Kullanıcılar", icon: Users, perm: "users.read" },
   { href: "/yonetim/abonelikler", label: "Paketler & Abonelikler", icon: Crown, perm: "subscriptions.read" },
   { href: "/yonetim/finans", label: "Finans & Lisanslar", icon: Wallet, perm: "finance.read" },
+  { href: "/yonetim/tasarim", label: "Design Studio", icon: Palette, perm: "design.read" },
   { href: "/yonetim/denetim", label: "Denetim Kaydı", icon: FileClock, perm: "audit.read" },
 ] as const;
 
@@ -43,7 +44,7 @@ function ReauthDialog({ onDone, onCancel }: { onDone: () => void; onCancel: () =
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => first.current?.focus(), []);
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="reauth-title" className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onKeyDown={(e) => e.key === "Escape" && onCancel()}>
+    <div role="dialog" aria-modal="true" aria-labelledby="reauth-title" className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onKeyDown={(e) => e.key === "Escape" && onCancel()}>
       <form
         className="w-full max-w-sm rounded-card border border-line-strong bg-surface p-6 shadow-card"
         onSubmit={async (e) => {
@@ -175,7 +176,7 @@ export function PageTitle({ eyebrow, title, children }: { eyebrow: string; title
 export function Table({ head, children, minWidth = 720 }: { head: string[]; children: ReactNode; minWidth?: number }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[12.5px]" style={{ minWidth }}>
+      <table className="mi-table w-full text-[12.5px]" style={{ minWidth }}>
         <thead>
           <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-muted">
             {head.map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}

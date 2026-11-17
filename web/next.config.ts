@@ -12,7 +12,7 @@ const csp = [
   "img-src 'self' data: https:",
   "font-src 'self'",
   "connect-src 'self'",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'", // Design Studio önizlemesi aynı kökenden iframe kullanır
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");
@@ -37,7 +37,7 @@ const config: NextConfig = {
           { key: "Content-Security-Policy", value: csp },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           ...(production
             ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]

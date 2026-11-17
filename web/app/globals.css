@@ -2,9 +2,9 @@
 
 /*
  * Match Intelligence AI — tasarım tokenları.
- * Varsayılan tasarım: DESIGN 01 — SIGNATURE BLACK (grafit yüzeyler, ölçülü şampanya altını vurgu,
- * veri için kontrollü kobalt ve mat turkuaz). Diğer tasarımlar (Faz 8) aynı token adlarını
- * [data-design="..."] altında yeniden tanımlar; bileşenler yalnızca bu tokenları kullanır.
+ * Varsayılan (API'ye ulaşılamazsa): DESIGN 01 — SIGNATURE BLACK. Faz 8: on tasarımın yayımlanmış
+ * yapılandırması sunucuda CSS'e çevrilir ve [data-design="..."] altında aynı token adlarını yeniden
+ * tanımlar. Yerleşim varyantları <html> üzerindeki data-* özniteliklerine bağlıdır (aşağıda).
  */
 :root,
 [data-design="signature-black"] {
@@ -37,7 +37,33 @@
   --mi-font: ui-sans-serif, -apple-system, "Segoe UI", system-ui, "Helvetica Neue", Arial,
     sans-serif;
   --mi-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --mi-font-heading: var(--mi-font);
+  --mi-accent-text: #14110a;
+  --mi-base: 14px;
+  --mi-heading-weight: 600;
+  --mi-heading-tracking: -0.025em;
+  --mi-border: 1px;
+  --mi-page: 1240px;
+  --mi-sidebar: 248px;
+  --mi-gap: 24px;
+  --mi-cols: 12;
+  --mi-chart-stroke: 2;
+  --mi-motion: 420ms;
   color-scheme: dark;
+}
+
+/* Türetilmiş renkler: her [data-design] öğesinde (önizleme kutuları dahil) yeniden hesaplanır. */
+[data-design] {
+  --mi-gold-soft: color-mix(in srgb, var(--mi-gold) 13%, transparent);
+  --mi-cobalt-soft: color-mix(in srgb, var(--mi-cobalt) 14%, transparent);
+  --mi-teal-soft: color-mix(in srgb, var(--mi-teal) 14%, transparent);
+  --mi-amber-soft: color-mix(in srgb, var(--mi-amber) 15%, transparent);
+  --mi-red-soft: color-mix(in srgb, var(--mi-red) 14%, transparent);
+  --mi-gold-hover: color-mix(in srgb, var(--mi-gold) 86%, var(--mi-text));
+  --mi-gold-active: color-mix(in srgb, var(--mi-gold) 82%, var(--mi-bg));
+  background-color: var(--mi-bg);
+  color: var(--mi-text);
+  font-family: var(--mi-font);
 }
 
 @theme inline {
@@ -64,10 +90,14 @@
   --color-home: var(--mi-home);
   --color-draw: var(--mi-draw);
   --color-away: var(--mi-away);
+  --color-accent-text: var(--mi-accent-text);
+  --color-gold-hover: var(--mi-gold-hover);
+  --color-gold-active: var(--mi-gold-active);
   --radius-card: var(--mi-radius);
   --radius-ctl: var(--mi-radius-sm);
   --font-sans: var(--mi-font);
   --font-mono: var(--mi-font-mono);
+  --font-heading: var(--mi-font-heading);
   --shadow-card: var(--mi-shadow);
 }
 
@@ -75,6 +105,7 @@ html {
   background: var(--mi-bg);
   color: var(--mi-text);
   font-family: var(--mi-font);
+  font-size: var(--mi-base);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -82,10 +113,82 @@ html {
 body {
   min-height: 100dvh;
   background:
-    radial-gradient(1200px 520px at 78% -12%, rgba(201, 171, 110, 0.07), transparent 60%),
-    radial-gradient(900px 480px at -8% 8%, rgba(91, 132, 255, 0.06), transparent 60%),
+    radial-gradient(1200px 520px at 78% -12%, color-mix(in srgb, var(--mi-gold) 7%, transparent), transparent 60%),
+    radial-gradient(900px 480px at -8% 8%, color-mix(in srgb, var(--mi-cobalt) 6%, transparent), transparent 60%),
     var(--mi-bg);
 }
+[data-mode="light"] body,
+[data-shell="terminal"] body { background: var(--mi-bg); }
+[data-card="glass"] body {
+  background:
+    radial-gradient(900px 600px at 85% -10%, color-mix(in srgb, var(--mi-gold) 16%, transparent), transparent 60%),
+    radial-gradient(700px 500px at 0% 30%, color-mix(in srgb, var(--mi-cobalt) 12%, transparent), transparent 60%),
+    radial-gradient(600px 400px at 60% 110%, color-mix(in srgb, var(--mi-away) 8%, transparent), transparent 60%),
+    var(--mi-bg);
+  background-attachment: fixed;
+}
+
+/* --- Tipografi: başlık fontu, ağırlığı ve harf aralığı tasarıma göre ------------------------- */
+[data-design] :is(h1, h2) {
+  font-family: var(--mi-font-heading) !important;
+  font-weight: var(--mi-heading-weight) !important;
+  letter-spacing: var(--mi-heading-tracking) !important;
+}
+[data-design] h3 { font-family: var(--mi-font-heading); }
+
+/* --- Yoğunluk: Tailwind'in aralık ölçeği (p-*, gap-*, m-*) tasarıma göre ölçeklenir --------- */
+[data-density="compact"] { --spacing: 0.2rem; }
+[data-density="comfortable"] { --spacing: 0.28rem; }
+
+/* --- Tasarım ızgarası (12 veya 16 sütun) ---------------------------------------------------- */
+@media (min-width: 1024px) {
+  .mi-grid { display: grid; grid-template-columns: repeat(var(--mi-cols), minmax(0, 1fr)); gap: var(--mi-gap); }
+  .mi-span-main { grid-column: 1 / span calc(var(--mi-cols) * 7 / 12); grid-row: span 2; }
+  .mi-span-side { grid-column: span calc(var(--mi-cols) * 5 / 12) / -1; }
+  .mi-span-offset { grid-column: calc(var(--mi-cols) * 8 / 12 + 1) / -1; }
+}
+
+/* --- Kart geometrisi ------------------------------------------------------------------------- */
+.mi-card { border-width: var(--mi-border); }
+[data-card="flat"] .mi-card { border-color: transparent; box-shadow: none; }
+[data-card="outlined"] .mi-card { box-shadow: none; }
+[data-card="glass"] .mi-card {
+  background: color-mix(in srgb, var(--mi-surface) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  border-color: var(--mi-line-strong);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 7%, transparent), var(--mi-shadow);
+}
+[data-card="notched"] .mi-card {
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  box-shadow: inset 3px 0 0 var(--mi-gold);
+}
+
+/* --- Birincil düğme ---------------------------------------------------------------------------- */
+[data-button="outline"] .mi-btn-primary { background: transparent; color: var(--mi-gold); box-shadow: inset 0 0 0 1px var(--mi-gold); }
+[data-button="outline"] .mi-btn-primary:hover { background: var(--mi-gold-soft); }
+[data-button="soft"] .mi-btn-primary { background: var(--mi-gold-soft); color: var(--mi-gold); }
+[data-button="soft"] .mi-btn-primary:hover { background: color-mix(in srgb, var(--mi-gold) 22%, transparent); }
+[data-button="sharp"] .mi-btn-primary { border-radius: 0; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
+
+/* --- Menü bağlantıları ------------------------------------------------------------------------- */
+.mi-nav-link { border-radius: var(--mi-radius-sm); }
+.mi-nav-link[aria-current="page"] { background: var(--mi-surface-2); color: var(--mi-text); }
+[data-menu="underline"] .mi-nav-link { border-radius: 0; }
+[data-menu="underline"] .mi-nav-link[aria-current="page"] { background: transparent; box-shadow: inset 0 -2px 0 var(--mi-gold); }
+[data-menu="block"] .mi-nav-link { border-radius: 0; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11.5px; }
+[data-menu="block"] .mi-nav-link[aria-current="page"] { background: var(--mi-gold); color: var(--mi-accent-text); }
+
+/* --- Tablolar ---------------------------------------------------------------------------------- */
+[data-table="zebra"] .mi-table tbody tr:nth-child(even) { background: var(--mi-surface-2); }
+[data-table="boxed"] .mi-table :is(td, th) { border: 1px solid var(--mi-line); }
+.mi-table thead th { font-family: var(--mi-font); }
+
+/* --- Hareket ----------------------------------------------------------------------------------- */
+[data-motion="none"] * { animation: none !important; transition: none !important; }
+[data-motion="subtle"] .rise { animation-duration: 0.2s; }
+
+.font-heading { font-family: var(--mi-font-heading); }
 
 .num {
   font-variant-numeric: tabular-nums;

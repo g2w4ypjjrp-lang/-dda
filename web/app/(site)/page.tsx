@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight, BadgeCheck, Brain, Database, Gauge, History, Layers, Lock, ShieldCheck, Sigma,
+  BadgeCheck, Brain, Database, Gauge, History, ShieldCheck, Sigma,
 } from "lucide-react";
 
-import { DataStatusBanner, LiveCount, MatchRow } from "@/components/match";
+import { HomeHero } from "@/components/heroes";
+import { DataStatusBanner, MatchList } from "@/components/match";
 import { Badge, Card, CardHeader, Empty, ErrorState, ProbBar, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
-import { ago, fmtDate, num, pct, trToday } from "@/lib/format";
+import { num, pct, trToday } from "@/lib/format";
 import type { FixtureList, Performance, Prediction } from "@/lib/types";
 
 function useToday() {
@@ -56,62 +57,7 @@ export default function HomePage() {
 
   return (
     <div className="pb-8">
-      {/* Hero */}
-      <section className="grid items-center gap-10 pb-14 pt-12 lg:grid-cols-[1.15fr_1fr] lg:pt-20">
-        <div className="rise">
-          <div className="eyebrow mb-5 flex items-center gap-2">
-            <span className="h-px w-8 bg-gold" aria-hidden /> Sports Intelligence Platform
-          </div>
-          <h1 className="text-[40px] font-semibold leading-[1.05] tracking-[-0.025em] text-text sm:text-[56px]">
-            Futbolu <span className="text-gold">olasılıklarla</span>
-            <br /> okuyun.
-          </h1>
-          <p className="mt-6 max-w-xl text-[15.5px] leading-relaxed text-text-2">
-            Gerçek maç verisi, kronolojik olarak test edilmiş modeller ve belirsizliği saklamayan analizler.
-            Her olasılığın yanında ne kadar güvenilir olduğunu da görürsünüz.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/maclar" className="inline-flex h-11 items-center gap-2 rounded-ctl bg-gold px-5 text-sm font-semibold text-[#14110a] hover:bg-[#d6b97d]">
-              Maç Merkezi <ArrowRight className="size-4" aria-hidden />
-            </Link>
-            <Link href="/performans" className="inline-flex h-11 items-center gap-2 rounded-ctl border border-line-strong bg-surface-2 px-5 text-sm font-medium text-text hover:bg-surface-3">
-              Model nasıl ölçülüyor?
-            </Link>
-          </div>
-        </div>
-
-        <Card className="rise overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-            <div className="flex items-center gap-2 text-[13px] font-medium text-text">
-              <span className="size-1.5 rounded-full bg-teal" aria-hidden /> Bugün · {fmtDate(`${day}T12:00:00Z`)}
-            </div>
-            <LiveCount items={items} />
-          </div>
-          <div className="grid grid-cols-3 gap-4 px-5 py-5">
-            {fixtures.isLoading ? (
-              [0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)
-            ) : (
-              <>
-                <Stat label="Maç" value={items.length} />
-                <Stat label="AI analizi" value={published.length} hint={preds.length - published.length ? `${preds.length - published.length} çekimser` : undefined} />
-                <Stat label="Biten" value={items.filter((f) => f.status === "finished").length} />
-              </>
-            )}
-          </div>
-          <div className="border-t border-line px-5 py-4">
-            <div className="eyebrow mb-3">Bir analiz nasıl okunur</div>
-            <ul className="grid grid-cols-2 gap-3 text-[12.5px] text-text-2">
-              <li className="flex items-start gap-2"><Sigma className="mt-0.5 size-4 text-cobalt" aria-hidden />Olay olasılığı</li>
-              <li className="flex items-start gap-2"><BadgeCheck className="mt-0.5 size-4 text-gold" aria-hidden />Model güvenilirliği</li>
-              <li className="flex items-start gap-2"><Database className="mt-0.5 size-4 text-teal" aria-hidden />Veri kalitesi</li>
-              <li className="flex items-start gap-2"><Layers className="mt-0.5 size-4 text-text-2" aria-hidden />Modeller arası uyum</li>
-            </ul>
-          </div>
-          <div className="border-t border-line bg-bg-elevated px-5 py-3 text-[11.5px] text-muted">
-            Veri kaynağı: {fixtures.data?.provider_label ?? "—"} · Son eşitleme: {ago(fixtures.data?.last_successful_sync_at)}
-          </div>
-        </Card>
-      </section>
+      <HomeHero d={{ day, list: fixtures.data, items, preds, published, perf: perf.data, loading: fixtures.isLoading || predictions.isLoading }} />
 
       <div className="mb-6"><DataStatusBanner status={fixtures.data} items={fixtures.data?.items} /></div>
 
@@ -131,7 +77,7 @@ export default function HomePage() {
             ) : items.length === 0 ? (
               <Empty title="Bugün için maç yok">Takip edilen liglerde bugün maç bulunmuyor veya veri henüz gelmedi.</Empty>
             ) : (
-              items.slice(0, 8).map((f) => <MatchRow key={f.id} fixture={f} prediction={byFixture.get(f.id)} />)
+              <MatchList fixtures={items.slice(0, 8)} byFixture={byFixture} />
             )}
           </div>
         </Card>
@@ -216,7 +162,7 @@ export default function HomePage() {
       <section className="mt-20">
         <div className="eyebrow mb-3">Üyelik</div>
         <h2 className="text-[28px] font-semibold tracking-tight">İhtiyacınız kadar derinlik</h2>
-        <p className="mt-2 text-[13.5px] text-muted">Ücretli paketler ve fiyatlar ödeme altyapısı tamamlandığında açıklanacak.</p>
+        <p className="mt-2 text-[13.5px] text-muted">Paket hakları ve güncel fiyatlar (fiyat yoksa satış kapalıdır) Paketler sayfasında.</p>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {PLANS.map((p) => (
             <Card key={p.name} className={p.highlight ? "border-gold/40 p-6" : "p-6"}>
@@ -231,9 +177,9 @@ export default function HomePage() {
               </ul>
               <div className="mt-6">
                 {p.name === "FREE" ? (
-                  <Link href="/kayit" className="inline-flex h-10 w-full items-center justify-center rounded-ctl bg-gold text-sm font-semibold text-[#14110a] hover:bg-[#d6b97d]">Ücretsiz hesap aç</Link>
+                  <Link href="/kayit" className="inline-flex h-10 w-full items-center justify-center mi-btn-primary rounded-ctl bg-gold text-sm font-semibold text-accent-text hover:bg-gold-hover">Ücretsiz hesap aç</Link>
                 ) : (
-                  <span className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-ctl border border-line text-[13px] text-muted"><Lock className="size-3.5" aria-hidden />Yakında</span>
+                  <Link href="/paketler" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-ctl border border-line-strong text-[13px] font-medium text-text hover:bg-surface-2">Paketi incele</Link>
                 )}
               </div>
             </Card>

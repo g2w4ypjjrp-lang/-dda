@@ -10,7 +10,7 @@ kazanç garantisi vermez.
 | Futbol veri altyapısı | [`api/src/mi_api/football/`](api/src/mi_api/football/) | ✅ Faz 2: API-Football ve football-data.org uyarlayıcıları, kota yönetimi, Celery işçisi; gerçek veri sağlayıcı anahtarıyla (M-G1) |
 | AI / tahmin motoru | [`ml/`](ml/) | ✅ Faz 3: Poisson, Dixon-Coles, Elo, LightGBM + Optuna, ensemble, kalibrasyon, walk-forward backtest, belirsizlik ve çekimserlik, değiştirilemez tahmin kaydı |
 | Paket, ödeme, lisans | [`api/src/mi_api/billing/`](api/src/mi_api/billing/) | ✅ Faz 6: FREE/PRO/ELITE hakları (backend'de), abonelik, PayTR/iyzico/simülatör (imzalı, idempotent), iade, lisans anahtarları; canlı ödeme M-G5 ile |
-| Web uygulaması | [`web/`](web/) | ✅ Site, maç merkezi, maç detayı + AI analizi, hesap + MFA, kullanıcı paneli, yönetim paneli (Command Center, Veri Merkezi, Model Lab, Kullanıcılar, Denetim). Tasarım: Signature Black; diğer 9 tasarım Faz 8 |
+| Web uygulaması | [`web/`](web/) | ✅ Site, maç merkezi, maç detayı + AI analizi, hesap + MFA, kullanıcı paneli, yönetim paneli (Command Center, Veri Merkezi, Model Lab, Kullanıcılar, Denetim). On tasarım sistemi (kabuk, ana sayfa, liste, kart, tipografi ayrı) ve Design Studio (önizleme, düzenleme, yayın, sürüm, geri alma) |
 
 ## Belgeler
 
@@ -24,6 +24,7 @@ kazanç garantisi vermez.
 7. [Faz 5 raporu — sanal portföy](docs/07-faz5-raporu.md)
 8. [Faz 6 raporu — paketler, ödeme, lisans](docs/08-faz6-raporu.md)
 9. [İlk yarı modeli ve kupona ekle](docs/09-ilk-yari-raporu.md)
+10. [Faz 8 raporu — on tasarım ve Design Studio](docs/10-faz8-raporu.md)
 
 ## Hızlı başlangıç
 

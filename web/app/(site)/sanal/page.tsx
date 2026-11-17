@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Info, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+import { useLayout } from "@/components/design";
 
 import { Badge, Button, Card, CardHeader, Empty, ErrorState, FormError, Notice, Skeleton, Stat } from "@/components/ui";
 import { ApiError, api, post, put } from "@/lib/api";
@@ -91,6 +93,7 @@ function SettingsCard({ account }: { account: Account }) {
 }
 
 export default function VirtualPortfolio() {
+  const layout = useLayout();
   const { data: me, isLoading: meLoading } = useMe();
   const qc = useQueryClient();
   const account = useQuery({
@@ -141,13 +144,20 @@ export default function VirtualPortfolio() {
               <div className="h-64 p-4">
                 {r && r.balance_series.length > 1 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={r.balance_series.map((p) => ({ ...p, sb: p.balance_minor / 100 }))} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-                      <CartesianGrid stroke="var(--mi-line)" />
+                    <ComposedChart data={r.balance_series.map((p) => ({ ...p, sb: p.balance_minor / 100 }))} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                      {layout.chartGrid && <CartesianGrid stroke="var(--mi-line)" />}
                       <XAxis dataKey="at" tickFormatter={(v) => fmtDateTime(String(v)).split(" ").slice(0, 2).join(" ")} stroke="var(--mi-muted)" fontSize={11} minTickGap={40} />
                       <YAxis stroke="var(--mi-muted)" fontSize={11} width={64} tickFormatter={(v) => Number(v).toLocaleString("tr-TR")} domain={["auto", "auto"]} />
                       <Tooltip contentStyle={{ background: "var(--mi-surface-2)", border: "1px solid var(--mi-line-strong)", borderRadius: 8, fontSize: 12 }} formatter={(v) => `${Number(v).toLocaleString("tr-TR")} SB`} labelFormatter={(v) => fmtDateTime(String(v))} />
-                      <Line type="stepAfter" dataKey="sb" stroke="var(--mi-gold)" strokeWidth={2} dot={false} />
-                    </LineChart>
+                      {/* Grafik stili tasarımdan: çizgi, alan veya sütun. */}
+                      {layout.chart === "bars" ? (
+                        <Bar dataKey="sb" fill="var(--mi-gold)" radius={[2, 2, 0, 0]} />
+                      ) : layout.chart === "area" ? (
+                        <Area type="stepAfter" dataKey="sb" stroke="var(--mi-gold)" strokeWidth={layout.chartStroke} fill="var(--mi-gold-soft)" dot={false} />
+                      ) : (
+                        <Line type="stepAfter" dataKey="sb" stroke="var(--mi-gold)" strokeWidth={layout.chartStroke} dot={false} />
+                      )}
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : <Empty title="Henüz hareket yok">Kupon Merkezi'nde kupon kaydedip "Sanal bilet aç" ile başlayın.</Empty>}
               </div>

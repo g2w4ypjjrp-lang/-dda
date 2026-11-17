@@ -16,7 +16,7 @@ export default function ResetPage() {
       {state === "done" ? (
         <>
           <p className="text-[13.5px] text-teal">Parolanız güncellendi.</p>
-          <Link href="/giris" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-ctl bg-gold text-sm font-semibold text-[#14110a]">Giriş yap</Link>
+          <Link href="/giris" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-ctl bg-gold text-sm font-semibold text-accent-text">Giriş yap</Link>
         </>
       ) : (
         <form

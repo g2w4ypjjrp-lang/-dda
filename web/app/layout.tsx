@@ -1,7 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
+import "@fontsource-variable/inter";
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/source-serif-4";
+import "@fontsource-variable/jetbrains-mono";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
 import "./globals.css";
+import { DesignProvider } from "@/components/design";
+import { DESIGN_COOKIE, allDesignsCss, designAttrs, resolveKey, type DesignPayload } from "@/lib/design";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -14,11 +27,33 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#0a0b0d", width: "device-width", initialScale: 1 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/** Yayımlanmış tasarımlar (API). Ulaşılamazsa Signature Black (globals.css) ile devam edilir. */
+async function loadDesigns(): Promise<DesignPayload | null> {
+  try {
+    const res = await fetch(`${process.env.MI_API_URL ?? "http://127.0.0.1:8080"}/v1/design`, {
+      next: { revalidate: 5 },
+      signal: AbortSignal.timeout(2500),
+    });
+    return res.ok ? ((await res.json()) as DesignPayload) : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const [payload, jar] = await Promise.all([loadDesigns(), cookies()]);
+  const key = resolveKey(payload, jar.get(DESIGN_COOKIE)?.value);
+  const config = payload?.designs[key]?.config ?? null;
   return (
-    <html lang="tr" data-design="signature-black">
+    <html lang="tr" {...designAttrs(key, config)} suppressHydrationWarning>
+      <head>
+        {/* Değerler sunucuda ve burada şemayla doğrulanmıştır (yalnızca renk/sayı/izinli seçenek). */}
+        <style id="mi-designs" dangerouslySetInnerHTML={{ __html: allDesignsCss(payload) }} />
+      </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <DesignProvider payload={payload} initialKey={key}>{children}</DesignProvider>
+        </Providers>
       </body>
     </html>
   );

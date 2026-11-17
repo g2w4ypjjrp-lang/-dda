@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, KeyRound, LogOut, Monitor, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { MatchRow } from "@/components/match";
+import { chooseDesign, useDesign } from "@/components/design";
+import { DesignSwatch } from "@/components/DesignSwatch";
+import { MatchList } from "@/components/match";
 import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Skeleton, Stat } from "@/components/ui";
 import { api, post } from "@/lib/api";
 import { ORDER_STATUS, SUB_SOURCE, SUB_STATUS, ago, fmtDateTime, fmtDay, money, trToday } from "@/lib/format";
@@ -155,6 +157,30 @@ function PlanCard({ billing }: { billing: BillingMe | undefined }) {
   );
 }
 
+function AppearanceCard() {
+  const { payload, key } = useDesign();
+  const [cookieSet, setCookieSet] = useState(false);
+  useEffect(() => setCookieSet(document.cookie.split("; ").some((c) => c.startsWith("mi_design="))), []);
+  if (!payload) return null;
+  return (
+    <Card>
+      <CardHeader eyebrow="Görünüm" title="Tasarım" action={cookieSet ? <Button size="sm" variant="ghost" onClick={() => chooseDesign(null)}>Site varsayılanı</Button> : undefined} />
+      <div className="grid grid-cols-2 gap-2.5 p-4" role="radiogroup" aria-label="Tasarım seçimi">
+        {payload.order.map((k) => {
+          const d = payload.designs[k];
+          if (!d) return null;
+          return (
+            <button key={k} type="button" role="radio" aria-checked={k === key} aria-label={d.config.name} onClick={() => chooseDesign(k)} className="rounded-[10px] text-left">
+              <DesignSwatch designKey={k} config={d.config} selected={k === key} />
+            </button>
+          );
+        })}
+      </div>
+      <p className="px-5 pb-4 text-[11.5px] text-muted">Seçiminiz bu tarayıcıda saklanır; tüm sayfalar seçilen tasarımla açılır.</p>
+    </Card>
+  );
+}
+
 function SessionsCard() {
   const qc = useQueryClient();
   const q = useQuery({
@@ -240,13 +266,14 @@ export default function PanelPage() {
   const router = useRouter();
   const { data: me, isLoading } = useMe();
   const logout = useLogout();
+  const leaving = useRef(false); // çıkışta "oturum yok → giriş" yönlendirmesi devreye girmesin
   const day = trToday();
   const fixtures = useQuery({ queryKey: ["fixtures", day], queryFn: () => api<FixtureList>(`/v1/football/fixtures?date=${day}`), enabled: !!me });
   const predictions = useQuery({ queryKey: ["predictions", day], queryFn: () => api<{ items: Prediction[] }>(`/v1/predictions?date=${day}`), enabled: !!me });
   const billing = useQuery({ queryKey: ["billing", "me"], queryFn: () => api<BillingMe>("/v1/billing/me"), enabled: !!me });
 
   useEffect(() => {
-    if (!isLoading && me === null) router.replace("/giris?next=/panel");
+    if (!isLoading && me === null && !leaving.current) router.replace("/giris?next=/panel");
   }, [isLoading, me, router]);
 
   if (isLoading || !me) return <div className="space-y-4 py-8"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
@@ -260,7 +287,7 @@ export default function PanelPage() {
           <div className="eyebrow mb-2">Panelim</div>
           <h1 className="text-[28px] font-semibold tracking-tight">Merhaba, {me.display_name}</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={async () => { await logout(); router.push("/"); }}>
+        <Button variant="ghost" size="sm" onClick={async () => { leaving.current = true; await logout(); router.push("/"); }}>
           <LogOut className="size-4" aria-hidden />Çıkış
         </Button>
       </div>
@@ -278,12 +305,13 @@ export default function PanelPage() {
           <div className="mt-3 divide-y divide-line border-t border-line">
             {fixtures.isLoading ? <Skeleton className="m-5 h-24" /> : items.length === 0 ? (
               <Empty title="Bugün maç yok veya veri henüz gelmedi" />
-            ) : items.slice(0, 10).map((f) => <MatchRow key={f.id} fixture={f} prediction={byFixture.get(f.id)} />)}
+            ) : <MatchList fixtures={items.slice(0, 10)} byFixture={byFixture} />}
           </div>
         </Card>
         <div className="space-y-6">
           <PlanCard billing={billing.data} />
           <MfaCard me={me} />
+          <AppearanceCard />
           <SessionsCard />
           <DeleteAccount me={me} />
         </div>

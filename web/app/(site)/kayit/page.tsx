@@ -39,7 +39,7 @@ export default function RegisterPage() {
         <div className="flex items-center gap-3 rounded-ctl border border-teal/30 bg-teal-soft px-4 py-3 text-[13px]">
           <MailCheck className="size-5 text-teal" aria-hidden /> Doğrulama bağlantısı e-posta adresinize gönderilecek.
         </div>
-        <Link href="/giris" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-ctl bg-gold text-sm font-semibold text-[#14110a]">Giriş yap</Link>
+        <Link href="/giris" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-ctl bg-gold text-sm font-semibold text-accent-text">Giriş yap</Link>
       </AuthShell>
     );
   }

@@ -12,7 +12,7 @@ export function cx(...parts: (string | false | null | undefined)[]) {
 
 export function Card({ children, className, as: Tag = "section" }: { children: ReactNode; className?: string; as?: "section" | "div" | "article" }) {
   return (
-    <Tag className={cx("rounded-card border border-line bg-surface shadow-card", className)}>{children}</Tag>
+    <Tag className={cx("mi-card rounded-card border border-line bg-surface shadow-card", className)}>{children}</Tag>
   );
 }
 
@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     "inline-flex items-center justify-center gap-2 rounded-ctl font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
   const sizes = { sm: "h-8 px-3 text-[13px]", md: "h-10 px-4 text-sm" };
   const variants = {
-    primary: "bg-gold text-[#14110a] hover:bg-[#d6b97d] active:bg-[#bb9d61]",
+    primary: "mi-btn-primary bg-gold text-accent-text hover:bg-gold-hover active:bg-gold-active",
     secondary: "border border-line-strong bg-surface-2 text-text hover:bg-surface-3",
     ghost: "text-text-2 hover:bg-surface-2 hover:text-text",
     danger: "border border-red/40 bg-red-soft text-red hover:bg-red/20",

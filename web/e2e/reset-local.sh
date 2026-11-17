@@ -9,3 +9,5 @@ name="${db##*/}"
 psql "$admin" -qc "DROP DATABASE IF EXISTS \"$name\" WITH (FORCE)" -c "CREATE DATABASE \"$name\""
 (cd "$here/api" && uv run mi-admin migrate)
 (cd "$here/ml" && MI_ENVIRONMENT=test uv run python scripts/seed_demo.py)
+# Hız sınırı sayaçları (ör. IP başına saatte 10 kayıt) önceki koşulardan kalmasın.
+if command -v redis-cli >/dev/null && [ -n "${MI_REDIS_URL:-}" ]; then redis-cli -u "$MI_REDIS_URL" flushdb >/dev/null; fi

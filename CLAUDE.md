@@ -53,15 +53,18 @@ Windows'ta PowerShell ortam değişkeni örneği: `$env:MI_DATABASE_URL = "postg
 Faz 4 (kupon), Faz 5 (sanal portföy) ve Faz 6 (paketler, ödeme, lisans) tamamlandı:
 `docs/06-faz4-raporu.md`, `docs/07-faz5-raporu.md`, `docs/08-faz6-raporu.md`; ilk yarı modeli ve
 "kupona ekle": `docs/09-ilk-yari-raporu.md` (İY piyasaları yalnızca `halftime.evaluate` kapısından
-geçerse yayımlanır; demo verisinde geçmiyor — eşiği demo için gevşetmeyin).
+geçerse yayımlanır; demo verisinde geçmiyor — eşiği demo için gevşetmeyin). Faz 8 tasarımlar:
+`docs/10-faz8-raporu.md` — yapılandırma katı şemadan geçer (CSS'e yalnızca hex/sayı/izinli seçenek),
+web `lib/design.ts` + `components/design.tsx` (`useLayout()`); yeni varyant = şema + defaults +
+`designAttrs`/CSS + bileşen.
 Paket hakları `mi_api.billing.plans` ile **backend'de** kontrol edilir; yeni bir ücretli özellik
 eklerken `plan_entitlements` anahtarı + `ENTITLEMENTS` tipi + `LOCK_LABELS` + geçişte tohum değeri ekleyin.
 Testlerde ücretli kullanıcı: `conftest.member(...)`; E2E'de `e2e/support.ts` → `grantPlan`.
 Canlı ödeme (M-G5) kullanıcı onayı olmadan açılmaz.
 
 Sıradakiler:
-1. Faz 8 tasarım sistemleri + Design Studio.
-2. Faz 9 yönetim modülleri (Data Explorer, Action Center, Ctrl+K, sipariş inceleme akışı).
-3. Faz 7 kalanları: PWA, bildirimler, widget'lar.
+1. Faz 9 yönetim modülleri (Data Explorer, Action Center, Ctrl+K, sipariş inceleme akışı).
+2. Faz 7 kalanları: PWA, bildirimler, kişiselleştirilebilir dashboard widget'ları.
+3. Faz 10: güvenlik, performans, görsel regresyon, yedek/geri yükleme, dağıtım (M-G3).
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

@@ -148,7 +148,7 @@ export default function PlansPage() {
                   ) : !canBuy ? (
                     <Button variant="secondary" disabled>Satışa kapalı</Button>
                   ) : !me ? (
-                    <Link href="/giris?next=/paketler" className="inline-flex h-9 items-center rounded-ctl bg-gold px-3.5 text-[13px] font-semibold text-[#14110a]">Giriş yapıp satın al</Link>
+                    <Link href="/giris?next=/paketler" className="inline-flex h-9 items-center rounded-ctl bg-gold px-3.5 text-[13px] font-semibold text-accent-text">Giriş yapıp satın al</Link>
                   ) : !me.email_verified ? (
                     <p className="text-[12px] text-amber">Satın almak için önce e-posta adresinizi doğrulayın.</p>
                   ) : (

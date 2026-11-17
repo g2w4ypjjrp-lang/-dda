@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { DataStatusBanner, LiveCount, MatchRow, groupByCompetition } from "@/components/match";
+import { DataStatusBanner, LiveCount, MatchList, groupByCompetition } from "@/components/match";
 import { Card, Empty, ErrorState, Skeleton, TeamCrest, cx } from "@/components/ui";
 import { api } from "@/lib/api";
 import { dayLabel, shiftDay, trToday } from "@/lib/format";
@@ -126,9 +126,7 @@ export default function MatchCenterPage() {
                 <span className="text-[13px] font-semibold">{g.name}</span>
                 <span className="ml-auto text-[11.5px] text-muted">{g.items.length} maç · Puan durumu</span>
               </Link>
-              <div className="divide-y divide-line">
-                {g.items.map((f) => <MatchRow key={f.id} fixture={f} prediction={byFixture.get(f.id)} />)}
-              </div>
+              <MatchList fixtures={g.items} byFixture={byFixture} columns={3} />
             </Card>
           ))
         )}
