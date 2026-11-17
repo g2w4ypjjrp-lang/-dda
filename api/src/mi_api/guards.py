@@ -7,6 +7,9 @@ AI Trading Intelligence bulut servisinden (``cloud/guards.py``) taşınmıştır
    bağlıdır. Çerez ayrıca ``SameSite=Strict``'tir (ikinci katman).
 2. **Gövde boyutu:** en fazla ``max_body`` bayt.
 3. **Gövde biçimi:** JSON gövdesi geçerli UTF-8 olmalı ve iç içe derinliği sınırlıdır.
+4. **NUL baytı:** yol, sorgu dizesi ya da JSON gövdesinde NUL (``%00``, ``\\u0000``) olan istek
+   400 ile reddedilir (PostgreSQL metin alanları NUL kabul etmez; aksi halde 500 olurdu).
+   Faz 10 güvenlik taraması bulgusu.
 """
 
 from __future__ import annotations
@@ -85,7 +88,14 @@ class RequestGuard:
         await send({"type": "http.response.body", "body": body})
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["method"] in SAFE_METHODS:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        query: bytes = scope.get("query_string", b"")
+        if "\x00" in scope["path"] or b"\x00" in query or b"%00" in query:
+            await self._reject(send, 400, "İstekte geçersiz karakter (NUL) var")
+            return
+        if scope["method"] in SAFE_METHODS:
             await self.app(scope, receive, send)
             return
         path: str = scope["path"]
@@ -123,6 +133,9 @@ class RequestGuard:
                 body.decode("utf-8")
             except UnicodeDecodeError:
                 await self._reject(send, 400, "İstek gövdesi geçerli UTF-8 değil")
+                return
+            if b"\\u0000" in body:
+                await self._reject(send, 400, "İstek gövdesinde geçersiz karakter (NUL) var")
                 return
             if json_depth_exceeds(body, self.max_depth):
                 await self._reject(send, 400, "İstek gövdesi çok derin iç içe")

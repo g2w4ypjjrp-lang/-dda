@@ -113,8 +113,16 @@ class RequestContext:
                     (b"x-content-type-options", b"nosniff"),
                     (b"x-frame-options", b"DENY"),
                     (b"referrer-policy", b"no-referrer"),
-                    (b"cache-control", b"no-store"),
                 ]
+                # Varsayılan önbelleksiz; açıkça önbellek başlığı koyan uç (ör. /v1/design) korunur.
+                if not any(k.lower() == b"cache-control" for k, _ in message.get("headers", [])):
+                    extra.append((b"cache-control", b"no-store"))
+                # JSON API: hiçbir şey yüklenmez ve çerçevelenmez. /docs (yalnızca geliştirme)
+                # Swagger arayüzü dış betik yüklediği için hariç.
+                if not scope["path"].startswith("/docs"):
+                    extra.append(
+                        (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'")
+                    )
                 message["headers"] = list(message.get("headers", [])) + extra
             await send(message)
 

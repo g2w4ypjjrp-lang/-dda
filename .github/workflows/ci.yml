@@ -192,3 +192,9 @@ jobs:
         run: |
           uv export --locked --no-dev --no-hashes --no-emit-project --no-emit-package mi-api -o requirements.txt
           uvx pip-audit -r requirements.txt --strict
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Web üretim bağımlılıkları (geliştirme araçları hariç; bkz. docs/13-faz10-raporu.md)
+        working-directory: web
+        run: npm audit --omit=dev --audit-level=high
