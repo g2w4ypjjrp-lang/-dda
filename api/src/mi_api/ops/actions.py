@@ -28,7 +28,7 @@ from mi_api.football.api import TR
 from mi_api.football.models import Fixture, SyncRun
 from mi_api.ops.health import HEARTBEAT_KEY, HEARTBEAT_STALE
 from mi_api.ops.metrics import Metrics
-from mi_api.ops.models import ActionAck
+from mi_api.ops.models import ActionAck, ApprovalRequest, Backup
 from mi_api.ops.overview import ai as ai_section
 from mi_api.predictions.models import ModelVersion, Prediction
 
@@ -235,6 +235,26 @@ async def collect(
                 "design.read",
             )
         )
+    out += await _backup_issues(db, settings, now)
+    for req in (
+        await db.execute(
+            select(ApprovalRequest)
+            .where(ApprovalRequest.status == "pending", ApprovalRequest.expires_at > now)
+            .order_by(ApprovalRequest.id)
+        )
+    ).scalars():
+        out.append(
+            Issue(
+                f"approval:{req.id}",
+                "pending",
+                "warning",
+                f"Onay bekleyen işlem #{req.id}: {req.summary}",
+                f"İkinci bir yönetici onaylamalı ya da reddetmeli; son: {req.expires_at:%d.%m %H:%M} UTC.",
+                "/yonetim/onaylar",
+                req.requested_at.isoformat(),
+                req.permission,
+            )
+        )
     stuck = (
         await db.execute(
             select(func.count())
@@ -260,6 +280,50 @@ async def collect(
                 "coupons.read",
             )
         )
+    return out
+
+
+async def _backup_issues(db: AsyncSession, settings: Settings, now: datetime) -> list[Issue]:
+    out: list[Issue] = []
+    if not settings.backup_dir:
+        if settings.environment in ("staging", "production"):
+            out.append(
+                Issue("backup_unconfigured", "data", "critical", "Yedekleme yapılandırılmamış",
+                      "MI_BACKUP_DIR ayarlanmadan veritabanı yedeği alınmaz.", "/yonetim/yedekler", None, "system.read")
+            )  # fmt: skip
+        return out
+    last = (
+        await db.execute(select(Backup).order_by(Backup.created_at.desc()).limit(1))
+    ).scalar_one_or_none()
+    last_ok = (
+        await db.execute(
+            select(Backup)
+            .where(Backup.status.in_(("ok", "pruned")))
+            .order_by(Backup.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if last is not None and last.status == "failed":
+        out.append(
+            Issue(f"backup_failed:{last.id}", "data", "critical", "Son yedekleme başarısız",
+                  (last.error or "")[:200], "/yonetim/yedekler", last.created_at.isoformat(), "system.read")
+        )  # fmt: skip
+    if last_ok is None or now - last_ok.created_at > timedelta(hours=26):
+        since = (
+            f"son başarılı yedek: {last_ok.created_at:%d.%m %H:%M} UTC"
+            if last_ok
+            else "hiç başarılı yedek yok"
+        )
+        out.append(
+            Issue(f"backup_stale:{now:%Y%m%d}", "data", "critical", "Son 26 saatte başarılı yedek yok",
+                  since, "/yonetim/yedekler", last_ok.created_at.isoformat() if last_ok else None, "system.read")
+        )  # fmt: skip
+    if last_ok is not None and last_ok.verify_ok is False:
+        out.append(
+            Issue(f"backup_verify:{last_ok.id}", "data", "critical", "Son yedeğin geri yükleme doğrulaması başarısız",
+                  "Yedek dosyası geri yüklenemedi ya da denetimler tutmadı; ayrıntı Yedekler sayfasında.",
+                  "/yonetim/yedekler", (last_ok.verified_at or last_ok.created_at).isoformat(), "system.read")
+        )  # fmt: skip
     return out
 
 

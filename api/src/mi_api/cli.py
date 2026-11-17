@@ -10,6 +10,10 @@
   elle çalıştırır (ör. tarihsel veri yükleme). Sonuç ``football_sync_runs``'a da yazılır.
 * ``grant-plan --email --plan PRO|ELITE --days N``: kullanıcıya ödemesiz abonelik verir (destek,
   test, kurumsal). Denetim kaydına yazılır; panelden de yapılabilir.
+* ``backup [--no-verify]``: ``MI_BACKUP_DIR`` altına yedek alır, sonra geçici veritabanına geri
+  yükleyerek doğrular (``mi_api.ops.backup``).
+* ``backup-verify [--id N] [--no-restore]``: bir yedeği (varsayılan: en son) yeniden doğrular.
+* ``restore FILE --target-url URL --yes [--overwrite-current]``: yedeği geri yükler.
 """
 
 from __future__ import annotations
@@ -134,6 +138,18 @@ def main(argv: list[str] | None = None) -> None:
     fsync.add_argument("--fixture-id", type=int)
     fsync.add_argument("--competition-id", type=int)
     fsync.add_argument("--season", type=int)
+    bk = sub.add_parser("backup", help="Veritabanı yedeği al ve doğrula")
+    bk.add_argument("--no-verify", action="store_true")
+    bv = sub.add_parser(
+        "backup-verify", help="Yedeği doğrula (geçici veritabanına geri yükleyerek)"
+    )
+    bv.add_argument("--id", type=int)
+    bv.add_argument("--no-restore", action="store_true")
+    rs = sub.add_parser("restore", help="Yedeği bir veritabanına geri yükle")
+    rs.add_argument("file")
+    rs.add_argument("--target-url", required=True)
+    rs.add_argument("--yes", action="store_true", help="Hedefteki verinin silineceğini onaylıyorum")
+    rs.add_argument("--overwrite-current", action="store_true")
     args = parser.parse_args(argv)
     settings = Settings()
 
@@ -157,6 +173,8 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("--days 1 ile 3660 arasında olmalı")
         end = asyncio.run(grant_plan(settings, args.email, args.plan, args.days))
         print(f"{args.plan} verildi; bitiş: {end}")
+    elif args.command in ("backup", "backup-verify", "restore"):
+        _backup_command(settings, args)
     elif args.command == "football-sync":
         from mi_api.logs import configure_logging
         from mi_api.worker import run_job
@@ -176,6 +194,39 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if result["status"] == "failed":
             raise SystemExit(1)
+
+
+def _backup_command(settings: Settings, args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from mi_api.ops import backup
+
+    try:
+        if args.command == "backup":
+            out = asyncio.run(backup.create(settings, "cli", verify_after=not args.no_verify))
+            print(
+                json.dumps(
+                    {"id": out.id, "status": out.status, **out.detail}, ensure_ascii=False, indent=2
+                )
+            )
+            if out.status != "ok" or out.detail.get("verify", {"ok": True}).get("ok") is False:
+                raise SystemExit(1)
+        elif args.command == "backup-verify":
+            res = asyncio.run(backup.verify(settings, args.id, restore=not args.no_restore))
+            print(json.dumps(res, ensure_ascii=False, indent=2, default=str))
+            if not res["ok"]:
+                raise SystemExit(1)
+        else:
+            if not args.yes:
+                raise SystemExit(
+                    "Geri yükleme hedefteki veriyi siler; onaylamak için --yes ekleyin"
+                )
+            backup.restore(
+                settings, Path(args.file), args.target_url, overwrite_current=args.overwrite_current
+            )
+            print("Geri yükleme tamamlandı. Sonra: mi-admin migrate && mi-admin audit-verify")
+    except backup.BackupError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":

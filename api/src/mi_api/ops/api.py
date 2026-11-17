@@ -6,32 +6,33 @@
 * ``GET /admin/v1/actions`` — Action Center; ``POST /admin/v1/actions/ack`` "görüldü"
 * ``POST /admin/v1/billing/orders/{no}/resolve`` — incelemedeki siparişi onayla (abonelik ver) veya iade et
 * ``GET/PUT /admin/v1/flags`` — özellik bayrakları (``flags.manage`` hassas); ``GET /v1/notice`` site duyurusu
+* ``/admin/v1/approvals`` — dört göz talepleri: liste, onayla, reddet, iptal (``ops.approvals``)
+* ``GET /admin/v1/backups`` — yedek kayıtları (``system.read``); ``GET /metrics`` Prometheus (jetonlu)
 * ``GET /admin/v1/security`` — Güvenlik Merkezi (``security.read``)
 * ``GET /admin/v1/settings`` — gizli olmayan sistem ayarları (``settings.read``)
 """
 
 from __future__ import annotations
 
+import hmac
 from datetime import timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from mi_api import audit, rbac
-from mi_api.billing import service as billing
 from mi_api.billing.api import order_view
 from mi_api.billing.models import Order
-from mi_api.billing.providers import ProviderError
 from mi_api.context import AdminDep, DbDep, MetaDep, Principal, ServicesDep, require_permission
 from mi_api.coupons.models import Coupon
 from mi_api.errors import ApiError
 from mi_api.football.models import Fixture, Team
 from mi_api.models import AuditLog, User, UserRole, UserSession
-from mi_api.ops import actions, explorer, health, overview
-from mi_api.ops.models import ActionAck, FeatureFlag, SavedFilter
+from mi_api.ops import actions, approvals, backup, explorer, health, overview, prom
+from mi_api.ops.models import ActionAck, ApprovalRequest, FeatureFlag, SavedFilter
 
 SECURITY_ACTIONS = (
     "auth.login_failed",
@@ -63,6 +64,15 @@ class ResolveBody(BaseModel):
     confirm: Literal[True]
 
 
+class ApproveBody(BaseModel):
+    note: str | None = Field(default=None, max_length=300)
+    confirm: Literal[True]
+
+
+class RejectBody(BaseModel):
+    note: str = Field(min_length=5, max_length=300)
+
+
 class SavedFilterBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     params: dict[str, str] = Field(max_length=20)
@@ -71,6 +81,12 @@ class SavedFilterBody(BaseModel):
 class FlagBody(BaseModel):
     enabled: bool
     message: str | None = Field(default=None, max_length=300)
+
+
+def _ctx(
+    request: Request, db: Any, services: Any, admin: Principal, ip: str | None
+) -> approvals.Ctx:
+    return approvals.Ctx(db, services, request.app.state.payment_transport, admin.user.id, ip)
 
 
 def create_ops_router() -> APIRouter:
@@ -96,6 +112,37 @@ def create_ops_router() -> APIRouter:
             request.app.state.metrics,
             services.clock(),
         )
+
+    @router.get("/metrics", include_in_schema=False)
+    async def prometheus(request: Request, db: DbDep, services: ServicesDep) -> Response:
+        token = services.settings.metrics_token
+        if token is None:
+            raise ApiError(404, "not_found", "Bulunamadı")
+        given = request.headers.get("authorization", "")
+        expected = f"Bearer {token.get_secret_value()}"
+        if not hmac.compare_digest(given.encode(), expected.encode()):
+            raise ApiError(401, "unauthenticated", "Geçersiz metrik jetonu")
+        body = await prom.render(
+            db,
+            services.settings,
+            request.app.state.redis,
+            request.app.state.metrics,
+            services.clock(),
+        )
+        return Response(body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+    @router.get("/admin/v1/backups")
+    async def list_backups(
+        db: DbDep, services: ServicesDep, _: Principal = _perm("system.read")
+    ) -> dict[str, Any]:
+        """Yedek kayıtları. Yedek almak/geri yüklemek yalnızca komut satırından (mi-admin)."""
+        st = services.settings
+        return {
+            "configured": bool(st.backup_dir),
+            "keep": st.backup_keep,
+            "schedule": "Her gün 03:17 UTC (işçi + zamanlayıcı çalışıyorsa)",
+            "items": await backup.recent(st, db),
+        }
 
     @router.get("/admin/v1/health/errors")
     async def recent_errors(
@@ -167,7 +214,7 @@ def create_ops_router() -> APIRouter:
         )
         return {"key": body.key, "acked": True}
 
-    @router.post("/admin/v1/billing/orders/{number}/resolve")
+    @router.post("/admin/v1/billing/orders/{number}/resolve", response_model=None)
     async def resolve_order(
         number: int,
         body: ResolveBody,
@@ -176,61 +223,111 @@ def create_ops_router() -> APIRouter:
         services: ServicesDep,
         meta: MetaDep,
         admin: Principal = _perm("finance.refund"),
-    ) -> dict[str, Any]:
-        """İncelemedeki sipariş: tutar doğrulandıysa onayla (abonelik ver) ya da ödemeyi iade et."""
-        order = await db.get(Order, number, with_for_update=True)
+    ) -> dict[str, Any] | JSONResponse:
+        """İncelemedeki sipariş: tutar doğrulandıysa onayla (abonelik ver) ya da ödemeyi iade et.
+
+        Dört göz kuralı açıksa 202 + onay talebi döner."""
+        order = await db.get(Order, number)
         if order is None:
             raise ApiError(404, "not_found", "Sipariş bulunamadı")
         if order.status != "review":
             raise ApiError(409, "not_in_review", "Sipariş incelemede değil")
-        now = services.clock()
-        if body.action == "approve":
-            order.status = "paid"
-            order.paid_at = now
-            order.note = f"{order.note or ''} | Onaylandı: {body.note}".strip(" |")
-            await db.flush()
-            await billing.grant_subscription(
-                db,
-                user_id=order.user_id,
-                plan=order.plan_code,
-                days=billing.PERIOD_DAYS[order.period],
-                source="payment",
-                now=now,
-                order_id=order.id,
-            )
-        else:
-            provider = billing.provider_for(services.settings, request.app.state.payment_transport)
-            if provider is None or provider.name != order.provider or not order.provider_payment_id:
-                raise ApiError(
-                    409,
-                    "provider_unavailable",
-                    "Siparişin ödeme sağlayıcısı bağlı değil veya ödeme kimliği yok",
-                )
-            try:
-                ref = await provider.refund(
-                    provider_payment_id=order.provider_payment_id,
-                    amount_minor=order.amount_minor,
-                    currency=order.currency,
-                    order_ref=str(order.public_id),
-                )
-            except ProviderError as exc:
-                raise ApiError(502, "provider_error", str(exc)) from exc
-            order.status = "refunded"
-            order.paid_at = order.paid_at or now
-            order.refunded_at = now
-            order.refund_ref = ref
-            order.note = f"{order.note or ''} | İade: {body.note}".strip(" |")
-        await audit.record(
-            db,
-            f"billing.review_{body.action}",
-            actor_type="admin",
-            actor_id=admin.actor_id,
-            target_type="order",
-            target_id=str(order.id),
-            ip=meta.ip,
-            details={"note": body.note},
+        verb = "onayı" if body.action == "approve" else "iadesi"
+        done = await approvals.submit(
+            _ctx(request, db, services, admin, meta.ip),
+            admin,
+            "billing.review",
+            target=f"order:{order.id}",
+            summary=f"İncelemedeki sipariş #{order.id} {verb}: {body.note}",
+            payload={"order": order.id, "action": body.action, "note": body.note},
         )
+        if isinstance(done, approvals.Pending):
+            return JSONResponse(done.body(), status_code=202)
+        await db.refresh(order)
         return order_view(order)
+
+    # --- Dört göz onayları -------------------------------------------------------------------
+
+    async def _approval_view(db: Any, req: ApprovalRequest, admin: Principal) -> dict[str, Any]:
+        ids = {req.requested_by} | ({req.decided_by} if req.decided_by else set())
+        emails = dict((await db.execute(select(User.id, User.email).where(User.id.in_(ids)))).all())
+        return approvals.view(req, emails, admin)
+
+    @router.get("/admin/v1/approvals")
+    async def list_approvals(
+        admin: AdminDep,
+        db: DbDep,
+        services: ServicesDep,
+        status: Literal["pending", "closed", "all"] = "pending",
+        limit: int = Query(default=50, ge=1, le=200),
+    ) -> dict[str, Any]:
+        """Yöneticinin karar verebileceği (izni olan) ya da kendi açtığı talepler."""
+        await approvals.expire_stale(db, services.clock())
+        stmt = select(ApprovalRequest).where(
+            (ApprovalRequest.permission.in_(admin.permissions))
+            | (ApprovalRequest.requested_by == admin.user.id)
+        )
+        if status == "pending":
+            stmt = stmt.where(ApprovalRequest.status == "pending")
+        elif status == "closed":
+            stmt = stmt.where(ApprovalRequest.status != "pending")
+        rows = (
+            (await db.execute(stmt.order_by(ApprovalRequest.id.desc()).limit(limit)))
+            .scalars()
+            .all()
+        )
+        ids = {r.requested_by for r in rows} | {r.decided_by for r in rows if r.decided_by}
+        emails = (
+            dict((await db.execute(select(User.id, User.email).where(User.id.in_(ids)))).all())
+            if ids
+            else {}
+        )
+        enabled = await approvals.dual_control_on(db)
+        return {"dual_control": enabled, "items": [approvals.view(r, emails, admin) for r in rows]}
+
+    @router.post("/admin/v1/approvals/{approval_id}/approve")
+    async def approve_request(
+        approval_id: int,
+        body: ApproveBody,
+        request: Request,
+        admin: AdminDep,
+        db: DbDep,
+        services: ServicesDep,
+        meta: MetaDep,
+    ) -> dict[str, Any]:
+        req = await approvals.approve(
+            _ctx(request, db, services, admin, meta.ip), admin, approval_id, body.note
+        )
+        return await _approval_view(db, req, admin)
+
+    @router.post("/admin/v1/approvals/{approval_id}/reject")
+    async def reject_request(
+        approval_id: int,
+        body: RejectBody,
+        request: Request,
+        admin: AdminDep,
+        db: DbDep,
+        services: ServicesDep,
+        meta: MetaDep,
+    ) -> dict[str, Any]:
+        req = await approvals.reject(
+            _ctx(request, db, services, admin, meta.ip), admin, approval_id, body.note
+        )
+        return await _approval_view(db, req, admin)
+
+    @router.post("/admin/v1/approvals/{approval_id}/cancel")
+    async def cancel_request(
+        approval_id: int,
+        request: Request,
+        admin: AdminDep,
+        db: DbDep,
+        services: ServicesDep,
+        meta: MetaDep,
+    ) -> dict[str, Any]:
+        req = await approvals.cancel(
+            _ctx(request, db, services, admin, meta.ip), admin, approval_id
+        )
+        return await _approval_view(db, req, admin)
 
     @router.get("/v1/notice")
     async def site_notice(db: DbDep) -> dict[str, Any]:
@@ -253,18 +350,32 @@ def create_ops_router() -> APIRouter:
             ]
         }
 
-    @router.put("/admin/v1/flags/{key}")
+    @router.put("/admin/v1/flags/{key}", response_model=None)
     async def set_flag(
         key: str,
         body: FlagBody,
+        request: Request,
         db: DbDep,
         services: ServicesDep,
         meta: MetaDep,
         admin: Principal = _perm("flags.manage"),
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | JSONResponse:
         flag = await db.get(FeatureFlag, key, with_for_update=True)
         if flag is None:
             raise ApiError(404, "not_found", "Bilinmeyen bayrak")
+        if key == "dual_control" and flag.enabled and not body.enabled:
+            done = await approvals.submit(
+                _ctx(request, db, services, admin, meta.ip),
+                admin,
+                "flags.dual_control_off",
+                target="flag:dual_control",
+                summary="Dört göz kuralının kapatılması",
+                payload={},
+                force_approval=True,
+            )
+            if isinstance(done, approvals.Pending):
+                return JSONResponse(done.body(), status_code=202)
+            return done
         if key == "maintenance_notice" and body.enabled and not (body.message or "").strip():
             raise ApiError(422, "message_required", "Duyuru şeridi için mesaj gerekli")
         before = flag.enabled

@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from celery import Celery, signals
+from celery.schedules import crontab
 from redis import Redis as SyncRedis
 from redis.asyncio import Redis
 
@@ -68,6 +69,8 @@ app.conf.update(
         "heartbeat": {"task": "mi.heartbeat", "schedule": 60.0},
         # Favori maç başlıyor/bitti ve abonelik bitiyor bildirimleri (tekrarsız).
         "notifications-scan": {"task": "mi.notifications.scan", "schedule": 300.0},
+        # Günlük yedek (03:17 UTC) + geçici veritabanına geri yükleyerek doğrulama.
+        "backup-daily": {"task": "mi.backup", "schedule": crontab(hour=3, minute=17)},
         "standings": {
             "task": "mi.football.sync",
             "schedule": 6 * 3600.0,
@@ -154,6 +157,18 @@ def coupons_settle() -> dict[str, int]:
 
 
 HEARTBEAT_KEY = "mi:heartbeat:worker"
+
+
+@app.task(name="mi.backup")  # type: ignore[untyped-decorator]
+def backup_daily() -> dict[str, Any]:
+    """Günlük yedek + geri yükleme doğrulaması. MI_BACKUP_DIR yoksa atlanır (Action Center
+    uyarır)."""
+    from mi_api.ops import backup
+
+    if not _settings.backup_dir:
+        return {"status": "skipped", "reason": "MI_BACKUP_DIR yok"}
+    out = asyncio.run(backup.create(_settings, "schedule"))
+    return {"id": out.id, "status": out.status, "verify_ok": out.detail.get("verify", {}).get("ok")}
 
 
 @app.task(name="mi.heartbeat")  # type: ignore[untyped-decorator]

@@ -69,6 +69,13 @@ class Settings(BaseSettings):
     # ML işçisi (mi_ml.tasks, ayrı imaj) çalıştırır.
     ml_schedule_enabled: bool = False
 
+    # Faz 10: yedekleme. Boşsa yedek alınmaz (Action Center üretimde uyarır). Dizin uygulama dışı,
+    # ayrı bir diske/bölgeye eşitlenmeli; dosyalar pg_dump "custom" biçiminde ve SHA-256 yanlı.
+    backup_dir: str | None = None
+    backup_keep: int = Field(default=14, ge=1, le=365)
+    # Prometheus /metrics ucu için taşıyıcı jeton. Boşsa uç 404 döner (kapalı).
+    metrics_token: SecretStr | None = None
+
     log_level: str = "INFO"
     log_json: bool = True
 

@@ -13,9 +13,9 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
-from sqlalchemy import delete, func, or_, select, text
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy import func, or_, select, text
 
 from mi_api import audit, rbac
 from mi_api.auth.mfa import check_mfa
@@ -39,6 +39,7 @@ from mi_api.context import (
 )
 from mi_api.errors import ApiError, forbidden
 from mi_api.models import AuditLog, Permission, Role, RolePermission, User, UserRole, UserSession
+from mi_api.ops import approvals
 from mi_api.security import verify_password
 
 Password = Annotated[str, StringConstraints(min_length=1, max_length=256)]
@@ -385,54 +386,36 @@ def create_admin_router() -> APIRouter:
             ],
         }
 
-    @router.put("/users/{user_id}/roles")
+    @router.put("/users/{user_id}/roles", response_model=None)
     async def set_roles(
         user_id: uuid.UUID,
         body: RolesBody,
+        request: Request,
         db: DbDep,
         services: ServicesDep,
         meta: MetaDep,
         admin: Principal = _perm("roles.assign"),
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | JSONResponse:
+        """Rol değişikliği. Dört göz kuralı açıksa 202 + onay talebi döner (``ops.approvals``)."""
         wanted = set(body.roles)
-        unknown = wanted - set(rbac.ROLES)
-        if unknown:
-            raise ApiError(422, "unknown_role", "Bilinmeyen rol: " + ", ".join(sorted(unknown)))
         if user_id == admin.user.id:
             raise ApiError(409, "self_action", "Kendi rollerinizi değiştiremezsiniz")
-        user = await _get_user(db, user_id)
-        if user.status != "active":
-            raise ApiError(409, "invalid_state", "Yalnızca aktif hesaba rol atanabilir")
-        if wanted and user.mfa_enabled_at is None:
-            raise ApiError(
-                409, "mfa_required", "Rol atanmadan önce kullanıcı iki adımlı doğrulamayı açmalı"
-            )
+        user = await approvals.check_roles_target(db, user_id, wanted)
         current = set(await roles_of(db, user.id))
-        added, removed = wanted - current, current - wanted
-        try:
-            if removed:
-                await db.execute(
-                    delete(UserRole).where(
-                        UserRole.user_id == user.id, UserRole.role_code.in_(removed)
-                    )
-                )
-            for code in sorted(added):
-                db.add(UserRole(user_id=user.id, role_code=code, granted_by=admin.user.id))
-            await db.flush()
-        except DBAPIError as exc:
-            if "SUPER_ADMIN" in str(exc.orig):
-                raise ApiError(
-                    409, "last_super_admin", "Son SUPER_ADMIN rolü kaldırılamaz"
-                ) from exc
-            raise
-        if added or removed:
-            # Yetkiler değişti: hedefin açık yönetici oturumları kapatılır.
-            await revoke_sessions(db, services, user.id, scope="admin")
-            await audit.record(
-                db, "admin.roles_changed", actor_type="admin", actor_id=admin.actor_id,
-                target_type="user", target_id=str(user.id), ip=meta.ip,
-                details={"added": sorted(added), "removed": sorted(removed)},
-            )  # fmt: skip
+        if wanted == current:
+            return {"roles": sorted(wanted)}
+        ctx = approvals.Ctx(
+            db, services, request.app.state.payment_transport, admin.user.id, meta.ip
+        )
+        added, removed = sorted(wanted - current), sorted(current - wanted)
+        change = ", ".join([f"+{r}" for r in added] + [f"-{r}" for r in removed])
+        done = await approvals.submit(
+            ctx, admin, "roles.set", target=f"user:{user.id}",
+            summary=f"{user.email} rolleri: {change}",
+            payload={"user": str(user.id), "roles": sorted(wanted)},
+        )  # fmt: skip
+        if isinstance(done, approvals.Pending):
+            return JSONResponse(done.body(), status_code=202)
         return {"roles": sorted(wanted)}
 
     # --- Denetim kaydı ------------------------------------------------------------------------

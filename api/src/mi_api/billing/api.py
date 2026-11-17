@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -64,7 +64,7 @@ from mi_api.context import (
 )
 from mi_api.errors import ApiError
 from mi_api.models import User
-from mi_api.ops import flags
+from mi_api.ops import approvals, flags
 
 PAID_PLANS = ("PRO", "ELITE")
 LEGAL_NOTE = (
@@ -714,7 +714,7 @@ def create_billing_admin_router() -> APIRouter:
             ]
         }
 
-    @router.post("/orders/{number}/refund")
+    @router.post("/orders/{number}/refund", response_model=None)
     async def refund(
         number: int,
         request: Request,
@@ -722,31 +722,27 @@ def create_billing_admin_router() -> APIRouter:
         services: ServicesDep,
         meta: MetaDep,
         admin: Principal = _perm("finance.refund"),
-    ) -> dict[str, Any]:
-        order = await db.get(Order, number, with_for_update=True)
+    ) -> dict[str, Any] | JSONResponse:
+        """İade. Dört göz kuralı açıksa 202 + onay talebi döner (``ops.approvals``)."""
+        order = await db.get(Order, number)
         if order is None:
             raise ApiError(404, "not_found", "Sipariş bulunamadı")
-        provider = service.provider_for(services.settings, request.app.state.payment_transport)
-        if provider is None or provider.name != order.provider:
-            raise ApiError(
-                409, "provider_unavailable", "Siparişin ödeme sağlayıcısı şu anda bağlı değil"
-            )
-        now = services.clock()
-        ref = await service.refund_order(db, provider, order, now)
-        await audit.record(
-            db,
-            "billing.refunded",
-            actor_type="admin",
-            actor_id=admin.actor_id,
-            target_type="order",
-            target_id=str(order.id),
-            ip=meta.ip,
-            details={
-                "amount_minor": order.amount_minor,
-                "currency": order.currency,
-                "refund_ref": ref,
-            },
+        if order.status != "paid" or not order.provider_payment_id:
+            raise ApiError(409, "not_refundable", "Yalnızca ödenmiş sipariş iade edilebilir")
+        ctx = approvals.Ctx(
+            db, services, request.app.state.payment_transport, admin.user.id, meta.ip
         )
+        done = await approvals.submit(
+            ctx,
+            admin,
+            "billing.refund",
+            target=f"order:{order.id}",
+            summary=f"Sipariş #{order.id} iadesi ({order.amount_minor / 100:.2f} {order.currency})",
+            payload={"order": order.id},
+        )
+        if isinstance(done, approvals.Pending):
+            return JSONResponse(done.body(), status_code=202)
+        await db.refresh(order)
         return order_view(order)
 
     @router.get("/licenses")

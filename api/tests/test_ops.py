@@ -135,7 +135,8 @@ async def test_feature_flags_are_enforced(
     admin = await make_staff(app, sql, clock, "admin@ornek.com", "ADMIN")
     async with use(admin.client) as a:
         flags = {f["key"]: f for f in (await a.get("/admin/v1/flags")).json()["items"]}
-        assert flags["registration_open"]["enabled"] is True and len(flags) == 5
+        assert flags["registration_open"]["enabled"] is True and len(flags) == 6
+        assert flags["dual_control"]["enabled"] is False  # dört göz varsayılan kapalı
         assert (
             await a.put("/admin/v1/flags/registration_open", json={"enabled": False})
         ).status_code == 200
