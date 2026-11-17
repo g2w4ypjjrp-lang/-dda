@@ -36,6 +36,7 @@ from mi_api.context import (
 )
 from mi_api.errors import ApiError
 from mi_api.models import EmailOutbox, EmailToken, RecoveryCode, User, UserSession
+from mi_api.ops import flags
 from mi_api.security import (
     hash_password,
     new_recovery_codes,
@@ -188,6 +189,7 @@ def create_auth_router() -> APIRouter:
         body: RegisterBody, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"register:ip:{meta.ip}", 10, 3600)
+        await flags.require(db, "registration_open")
         if not body.accept_terms:
             raise ApiError(422, "terms_required", "Kullanım koşullarını kabul etmeniz gerekiyor")
         email = normalize_email(body.email)

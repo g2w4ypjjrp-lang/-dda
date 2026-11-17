@@ -90,8 +90,9 @@ class RequestContext:
     Güvenlik başlıkları da burada eklenir (API JSON döner; tarayıcıda çalıştırılacak içerik yok).
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, metrics: Any = None) -> None:
         self.app = app
+        self.metrics = metrics  # mi_api.ops.metrics.Metrics (isteğe bağlı)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -120,6 +121,11 @@ class RequestContext:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
+            elapsed = (time.perf_counter() - started) * 1000
+            if self.metrics is not None:
+                await self.metrics.record(
+                    scope["method"], scope["path"], status_holder["status"], elapsed, rid
+                )
             access_log.info(
                 "request",
                 extra={
@@ -127,7 +133,7 @@ class RequestContext:
                         "method": scope["method"],
                         "path": scope["path"],
                         "status": status_holder["status"],
-                        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                        "duration_ms": round(elapsed, 1),
                     }
                 },
             )

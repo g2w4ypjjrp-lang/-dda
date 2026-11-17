@@ -64,6 +64,8 @@ app.conf.update(
         },
         # Kupon sonuçlandırma: biten maçların seçimleri ve kuponların durumu.
         "coupons-settle": {"task": "mi.coupons.settle", "schedule": 900.0},
+        # Kalp atışı: zamanlayıcı (beat) planlar, işçi çalıştırır; System Health ikisini de izler.
+        "heartbeat": {"task": "mi.heartbeat", "schedule": 60.0},
         "standings": {
             "task": "mi.football.sync",
             "schedule": 6 * 3600.0,
@@ -147,3 +149,14 @@ async def _settle_coupons() -> dict[str, int]:
 @app.task(name="mi.coupons.settle")  # type: ignore[untyped-decorator]
 def coupons_settle() -> dict[str, int]:
     return asyncio.run(_settle_coupons())
+
+
+HEARTBEAT_KEY = "mi:heartbeat:worker"
+
+
+@app.task(name="mi.heartbeat")  # type: ignore[untyped-decorator]
+def heartbeat() -> str:
+    now = datetime.now(UTC).isoformat()
+    if _settings.redis_url:
+        SyncRedis.from_url(_settings.redis_url.get_secret_value()).set(HEARTBEAT_KEY, now, ex=900)
+    return now

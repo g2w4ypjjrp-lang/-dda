@@ -27,6 +27,7 @@ from mi_api.context import (
 from mi_api.coupons.models import Coupon
 from mi_api.errors import ApiError
 from mi_api.football.api import TR
+from mi_api.ops import flags
 from mi_api.virtual import service
 from mi_api.virtual.models import Ticket, VirtualAccount
 
@@ -86,6 +87,7 @@ def create_virtual_router() -> APIRouter:
     async def open_account(
         body: OpenBody, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
+        await flags.require(db, "virtual_enabled")
         access = await access_for(db, user.user.id, services.clock())
         if not access.allows("virtual.enabled"):
             raise plan_required("virtual.enabled")
@@ -133,6 +135,7 @@ def create_virtual_router() -> APIRouter:
         body: TicketBody, user: UserDep, db: DbDep, services: ServicesDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"virtual_ticket:user:{user.user.id}", 30, 600)
+        await flags.require(db, "virtual_enabled")
         now = services.clock()
         account = await service.get_account(db, user.user.id, now, lock=True)
         coupon = await db.get(Coupon, body.coupon_id)

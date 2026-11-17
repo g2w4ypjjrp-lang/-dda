@@ -53,6 +53,7 @@ from mi_api.coupons.models import Coupon, CouponLeg
 from mi_api.errors import ApiError
 from mi_api.football.api import TR
 from mi_api.football.models import Competition, Fixture, Season, Team
+from mi_api.ops import flags
 from mi_api.predictions.models import Prediction
 from mi_api.virtual.service import settle_tickets
 
@@ -357,6 +358,7 @@ def create_coupons_router() -> APIRouter:
         body: GenerateBody, user: UserDep, db: DbDep, services: ServicesDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"coupon_generate:user:{user.user.id}", 30, 600)
+        await flags.require(db, "coupons_enabled")
         access = await access_for(db, user.user.id, services.clock())
         if not access.allows("coupons.enabled"):
             raise plan_required("coupons.enabled")
@@ -410,6 +412,7 @@ def create_coupons_router() -> APIRouter:
         """Kullanıcının seçtiği seçimlerle (maç sayfasından "kupona ekle") kupon önizlemesi:
         birleşik olasılık ve Monte Carlo doğrulaması. Kaydetmez."""
         await enforce_limit(services, f"coupon_preview:user:{user.user.id}", 120, 600)
+        await flags.require(db, "coupons_enabled")
         _check_plan(await access_for(db, user.user.id, services.clock()), body)
         draft, _ = await _resolve(db, body, services.clock())
         return draft
@@ -419,6 +422,7 @@ def create_coupons_router() -> APIRouter:
         body: SaveBody, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"coupon_save:user:{user.user.id}", 30, 600)
+        await flags.require(db, "coupons_enabled")
         _check_plan(await access_for(db, user.user.id, services.clock()), body)
         now = services.clock()
         draft, legs = await _resolve(db, body, now)

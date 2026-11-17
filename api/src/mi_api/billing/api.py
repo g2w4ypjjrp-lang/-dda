@@ -64,6 +64,7 @@ from mi_api.context import (
 )
 from mi_api.errors import ApiError
 from mi_api.models import User
+from mi_api.ops import flags
 
 PAID_PLANS = ("PRO", "ELITE")
 LEGAL_NOTE = (
@@ -280,6 +281,7 @@ def create_billing_router() -> APIRouter:
         meta: MetaDep,
     ) -> dict[str, Any]:
         await enforce_limit(services, f"checkout:user:{user.user.id}", 10, 3600)
+        await flags.require(db, "sales_enabled")
         if user.user.email_verified_at is None:
             raise ApiError(
                 403, "email_unverified", "Satın almadan önce e-posta adresinizi doğrulayın"

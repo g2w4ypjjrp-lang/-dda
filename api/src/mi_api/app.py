@@ -29,6 +29,8 @@ from mi_api.football.runtime import FootballRuntime
 from mi_api.guards import RequestGuard
 from mi_api.logs import RequestContext
 from mi_api.migrate import current_revision, head_revision
+from mi_api.ops.api import create_ops_router
+from mi_api.ops.metrics import MemoryMetrics, Metrics, RedisMetrics
 from mi_api.predictions.api import create_predictions_router
 from mi_api.ratelimit import Limiter, MemoryLimiter, RedisLimiter
 from mi_api.virtual.api import create_virtual_router
@@ -78,7 +80,10 @@ def create_app(
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Content-Type", "X-Request-ID"],
     )
-    app.add_middleware(RequestContext)
+    metrics: Metrics = RedisMetrics(redis) if redis is not None else MemoryMetrics()
+    app.state.metrics = metrics
+    app.state.redis = redis
+    app.add_middleware(RequestContext, metrics=metrics)
     install_error_handlers(app)
     app.include_router(create_auth_router())
     app.include_router(create_admin_router())
@@ -88,6 +93,7 @@ def create_app(
     app.include_router(create_virtual_router())
     app.include_router(create_billing_router())
     app.include_router(create_design_router())
+    app.include_router(create_ops_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
