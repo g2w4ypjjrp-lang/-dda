@@ -22,6 +22,7 @@ from mi_api.config import Settings
 from mi_api.context import Clock, Services, utcnow
 from mi_api.coupons.api import create_coupons_router
 from mi_api.db import Database
+from mi_api.design.api import create_design_router
 from mi_api.errors import install_error_handlers
 from mi_api.football.api import create_football_router
 from mi_api.football.runtime import FootballRuntime
@@ -86,6 +87,7 @@ def create_app(
     app.include_router(create_coupons_router())
     app.include_router(create_virtual_router())
     app.include_router(create_billing_router())
+    app.include_router(create_design_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
