@@ -265,6 +265,17 @@ PendingPrincipal = Annotated[Principal, Depends(_pending_or_active)]
 UserDep = Annotated[Principal, Depends(current_user)]
 
 
+async def optional_user(request: Request, db: DbDep, services: ServicesDep) -> Principal | None:
+    """Herkese açık uçlar için: oturum varsa (ve MFA tamamsa) kullanıcı, yoksa None."""
+    loaded = await load_session(db, services, request.cookies.get(APP_COOKIE), "app")
+    if loaded is None or loaded[1].state != "active":
+        return None
+    return Principal(loaded[0], loaded[1])
+
+
+OptionalUserDep = Annotated[Principal | None, Depends(optional_user)]
+
+
 async def current_admin(request: Request, db: DbDep, services: ServicesDep) -> Principal:
     loaded = await load_session(db, services, request.cookies.get(ADMIN_COOKIE), "admin")
     if loaded is None:

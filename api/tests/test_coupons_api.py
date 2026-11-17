@@ -10,18 +10,22 @@ from typing import Any
 import psycopg
 import pytest
 
-from conftest import Clock, make_staff, new_client, signup_and_login, use
+from conftest import Clock, make_staff, member, new_client, use
 from coupon_support import NOW, markets, poisson_matrix
 
 
-async def test_generate_requires_login(app: Any, seeded: dict[str, Any]) -> None:
+async def test_generate_requires_login(
+    app: Any, sql: psycopg.Connection[Any], seeded: dict[str, Any]
+) -> None:
     async with new_client(app) as c:
         assert (await c.post("/v1/coupons/generate", json={})).status_code == 401
 
 
-async def test_generate_draft(app: Any, seeded: dict[str, Any]) -> None:
+async def test_generate_draft(
+    app: Any, sql: psycopg.Connection[Any], seeded: dict[str, Any]
+) -> None:
     async with new_client(app) as c:
-        await signup_and_login(c, "kupon@ornek.com")
+        await member(c, sql, "kupon@ornek.com")
         r = await c.post(
             "/v1/coupons/generate", json={"date": "2026-11-20", "profile": "low", "size": 2}
         )
@@ -50,7 +54,7 @@ async def test_save_recomputes_and_is_immutable(
 ) -> None:
     p = seeded["preds"]
     async with new_client(app) as c:
-        await signup_and_login(c, "kupon@ornek.com")
+        await member(c, sql, "kupon@ornek.com")
         body = {
             "legs": [
                 {"prediction_id": p[0], "market": "1x2", "pick": "home"},
@@ -94,7 +98,7 @@ async def test_save_recomputes_and_is_immutable(
         listing = (await c.get("/v1/coupons")).json()["items"]
         assert [x["id"] for x in listing] == [coupon["id"]]
     async with new_client(app) as other:
-        await signup_and_login(other, "baska@ornek.com")
+        await member(other, sql, "baska@ornek.com")
         assert (await other.get(f"/v1/coupons/{coupon['id']}")).status_code == 404
 
 
@@ -118,7 +122,7 @@ async def test_stale_prediction_and_kickoff(
         ),
     )
     async with new_client(app) as c:
-        await signup_and_login(c, "kupon@ornek.com")
+        await member(c, sql, "kupon@ornek.com")
         r = await c.post(
             "/v1/coupons", json={"legs": [{"prediction_id": p[0], "market": "1x2", "pick": "home"}]}
         )
@@ -140,7 +144,7 @@ async def test_settlement_and_admin(
 ) -> None:
     p, fx = seeded["preds"], seeded["fixtures"]
     async with new_client(app) as c:
-        await signup_and_login(c, "kupon@ornek.com")
+        await member(c, sql, "kupon@ornek.com")
         won = (
             await c.post(
                 "/v1/coupons",

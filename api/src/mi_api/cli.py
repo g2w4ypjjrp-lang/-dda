@@ -8,6 +8,8 @@
 * ``audit-verify``: denetim kaydı zincirini doğrular.
 * ``football-sync JOB [--date] [--fixture-id] [--competition-id] [--season]``: futbol verisi işini
   elle çalıştırır (ör. tarihsel veri yükleme). Sonuç ``football_sync_runs``'a da yazılır.
+* ``grant-plan --email --plan PRO|ELITE --days N``: kullanıcıya ödemesiz abonelik verir (destek,
+  test, kurumsal). Denetim kaydına yazılır; panelden de yapılabilir.
 """
 
 from __future__ import annotations
@@ -89,6 +91,31 @@ async def audit_verify(settings: Settings) -> int | None:
         await db.close()
 
 
+async def grant_plan(settings: Settings, email: str, plan: str, days: int) -> str:
+    from mi_api.billing.service import grant_subscription
+
+    db = Database(settings.database_url.get_secret_value(), pool_size=1)
+    try:
+        async with db.session() as session:
+            user = (
+                await session.execute(select(User).where(User.email == email.strip().lower()))
+            ).scalar_one_or_none()
+            if user is None:
+                raise SystemExit("Bu e-postada kullanıcı yok")
+            now = datetime.now(UTC)
+            sub = await grant_subscription(
+                session, user_id=user.id, plan=plan, days=days, source="admin", now=now
+            )
+            await audit.record(
+                session, "billing.subscription_granted", actor_type="system",
+                target_type="user", target_id=str(user.id),
+                details={"plan": plan, "days": days, "subscription_id": sub.id, "via": "cli"},
+            )  # fmt: skip
+            return sub.current_period_end.isoformat()
+    finally:
+        await db.close()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="mi-admin")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +124,10 @@ def main(argv: list[str] | None = None) -> None:
     boot.add_argument("--email", required=True)
     boot.add_argument("--name", required=True)
     sub.add_parser("audit-verify", help="Denetim kaydı zincirini doğrula")
+    grant = sub.add_parser("grant-plan", help="Kullanıcıya ödemesiz abonelik ver")
+    grant.add_argument("--email", required=True)
+    grant.add_argument("--plan", required=True, choices=["PRO", "ELITE"])
+    grant.add_argument("--days", required=True, type=int)
     fsync = sub.add_parser("football-sync", help="Futbol verisi işini elle çalıştır")
     fsync.add_argument("job", choices=JOBS)
     fsync.add_argument("--date")
@@ -121,6 +152,11 @@ def main(argv: list[str] | None = None) -> None:
         else:
             print(f"Denetim kaydı zinciri {broken} numaralı kayıtta kırık!", file=sys.stderr)
             raise SystemExit(2)
+    elif args.command == "grant-plan":
+        if not 1 <= args.days <= 3660:
+            raise SystemExit("--days 1 ile 3660 arasında olmalı")
+        end = asyncio.run(grant_plan(settings, args.email, args.plan, args.days))
+        print(f"{args.plan} verildi; bitiş: {end}")
     elif args.command == "football-sync":
         from mi_api.logs import configure_logging
         from mi_api.worker import run_job

@@ -23,7 +23,7 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # Çerezsiz, imzayla kimliği doğrulanan makine uç noktaları (Faz 6: ödeme bildirimleri).
-MACHINE_PREFIXES: tuple[str, ...] = ("/v1/payments/webhooks/",)
+MACHINE_PREFIXES: tuple[str, ...] = ("/v1/billing/webhooks/",)
 MAX_BODY = 256 * 1024
 MAX_DEPTH = 32
 

@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from mi_api import audit
+from mi_api.billing.plans import access_for, plan_required
 from mi_api.context import (
     DbDep,
     MetaDep,
@@ -85,6 +86,9 @@ def create_virtual_router() -> APIRouter:
     async def open_account(
         body: OpenBody, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
+        access = await access_for(db, user.user.id, services.clock())
+        if not access.allows("virtual.enabled"):
+            raise plan_required("virtual.enabled")
         account = await service.open_account(db, user.user.id, services.clock())
         await audit.record(
             db,
@@ -106,6 +110,10 @@ def create_virtual_router() -> APIRouter:
         body: service.Settings, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
         now = services.clock()
+        if body.method == "kelly" and not (await access_for(db, user.user.id, now)).allows(
+            "virtual.kelly"
+        ):
+            raise plan_required("virtual.kelly")
         account = await service.get_account(db, user.user.id, now, lock=True)
         result = await service.update_settings(db, account, body, now)
         await audit.record(

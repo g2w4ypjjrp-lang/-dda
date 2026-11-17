@@ -9,7 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from conftest import Clock, make_staff, new_client, signup_and_login, use
+from conftest import Clock, make_staff, member, new_client, use
 from coupon_support import NOW
 from mi_api.errors import ApiError
 from mi_api.virtual import service
@@ -84,7 +84,7 @@ async def test_account_ledger_and_tickets(
 ) -> None:
     p = seeded["preds"]
     async with new_client(app) as c:
-        await signup_and_login(c, "sanal@ornek.com")
+        await member(c, sql, "sanal@ornek.com")
         assert (await c.get("/v1/virtual/account")).json()["code"] == "no_account"
         assert (await c.post("/v1/virtual/account", json={"accept": False})).status_code == 422
         acc = (await c.post("/v1/virtual/account", json={"accept": True})).json()
@@ -145,10 +145,12 @@ async def test_account_ledger_and_tickets(
     assert all(rows[i][2] == rows[i - 1][2] + rows[i][1] for i in range(1, len(rows)))
 
 
-async def test_limits_and_deferred_risk(app: Any, clock: Clock, seeded: dict[str, Any]) -> None:
+async def test_limits_and_deferred_risk(
+    app: Any, sql: psycopg.Connection[Any], clock: Clock, seeded: dict[str, Any]
+) -> None:
     p = seeded["preds"]
     async with new_client(app) as c:
-        await signup_and_login(c, "limit@ornek.com")
+        await member(c, sql, "limit@ornek.com")
         await c.post("/v1/virtual/account", json={"accept": True})
         # Riski azaltan değişiklik hemen.
         r = (
@@ -182,10 +184,12 @@ async def test_limits_and_deferred_risk(app: Any, clock: Clock, seeded: dict[str
         clock.now = NOW  # maçlar başlamadan geri dön (yalnızca test saatini)
 
 
-async def test_daily_risk_cap(app: Any, seeded: dict[str, Any]) -> None:
+async def test_daily_risk_cap(
+    app: Any, sql: psycopg.Connection[Any], seeded: dict[str, Any]
+) -> None:
     p = seeded["preds"]
     async with new_client(app) as c:
-        await signup_and_login(c, "risk@ornek.com")
+        await member(c, sql, "risk@ornek.com")
         await c.post("/v1/virtual/account", json={"accept": True})
         # Yalnızca riski azaltan değişiklik (hemen uygulanır): günlük risk %1 = 100 SB.
         r = (
@@ -206,7 +210,7 @@ async def test_settlement_report_reset(
 ) -> None:
     p, fx = seeded["preds"], seeded["fixtures"]
     async with new_client(app) as c:
-        await signup_and_login(c, "rapor@ornek.com")
+        await member(c, sql, "rapor@ornek.com")
         await c.post("/v1/virtual/account", json={"accept": True})
         win = await _coupon(c, p[0])  # ev sahibi kazanır
         lose = await _coupon(c, p[1], "1x2", "away")
@@ -264,12 +268,12 @@ async def test_settlement_report_reset(
 
 
 async def test_ticket_requires_own_open_coupon(
-    app: Any, clock: Clock, seeded: dict[str, Any]
+    app: Any, sql: psycopg.Connection[Any], clock: Clock, seeded: dict[str, Any]
 ) -> None:
     p = seeded["preds"]
     async with new_client(app) as a, new_client(app) as b:
-        await signup_and_login(a, "a@ornek.com")
-        await signup_and_login(b, "b@ornek.com")
+        await member(a, sql, "a@ornek.com")
+        await member(b, sql, "b@ornek.com")
         await b.post("/v1/virtual/account", json={"accept": True})
         coupon = await _coupon(a, p[0])
         assert (

@@ -103,9 +103,14 @@ def make_settings(dsn: str, **overrides: Any) -> Settings:
 async def app_factory(dsn: str, clock: Clock) -> AsyncIterator[Any]:
     apps: list[Any] = []
 
-    def factory(*, football_transport: Any = None, **overrides: Any) -> Any:
+    def factory(
+        *, football_transport: Any = None, payment_transport: Any = None, **overrides: Any
+    ) -> Any:
         app = create_app(
-            make_settings(dsn, **overrides), clock=clock, football_transport=football_transport
+            make_settings(dsn, **overrides),
+            clock=clock,
+            football_transport=football_transport,
+            payment_transport=payment_transport,
         )
         apps.append(app)
         return app
@@ -196,6 +201,27 @@ def grant_role(sql: psycopg.Connection[Any], email: str, role: str) -> None:
         "INSERT INTO user_roles (user_id, role_code) SELECT id, %s FROM users WHERE email = %s",
         (role, email),
     )
+
+
+def grant_plan(
+    sql: psycopg.Connection[Any], email: str, plan: str, start: datetime, days: int = 30
+) -> None:
+    """Teste ödemesiz (admin kaynaklı) abonelik verir."""
+    sql.execute(
+        "INSERT INTO subscriptions (user_id, plan_code, status, source, started_at,"
+        " current_period_end, created_at) SELECT id, %s, 'active', 'admin', %s, %s, %s"
+        " FROM users WHERE email = %s",
+        (plan, start - timedelta(days=1), start + timedelta(days=days), start, email),
+    )
+
+
+async def member(
+    client: httpx.AsyncClient, sql: psycopg.Connection[Any], email: str, plan: str = "ELITE"
+) -> dict[str, Any]:
+    """Kayıt + giriş + ücretli paket (kupon/sanal portföy testleri için)."""
+    user = await signup_and_login(client, email)
+    grant_plan(sql, email, plan, datetime(2026, 1, 1, tzinfo=UTC), days=3650)
+    return user
 
 
 @dataclass

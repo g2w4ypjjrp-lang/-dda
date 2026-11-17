@@ -24,7 +24,15 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mi_api import audit
-from mi_api.context import DbDep, MetaDep, Principal, ServicesDep, require_permission
+from mi_api.billing.plans import LOCK_LABELS, Access, access_for, required_plan
+from mi_api.context import (
+    DbDep,
+    MetaDep,
+    OptionalUserDep,
+    Principal,
+    ServicesDep,
+    require_permission,
+)
 from mi_api.errors import ApiError
 from mi_api.football.api import TR, tr_day_bounds
 from mi_api.predictions.models import ModelVersion, Prediction, PredictionOutcome, TuningTrial
@@ -134,28 +142,76 @@ def _calibration(rows: list[tuple[list[float], int]], bins: int = 10) -> list[di
     return out
 
 
+def redact(view: dict[str, Any], access: Access) -> dict[str, Any]:
+    """Plan haklarına göre tahmin görünümünü daraltır (kontrol sunucuda yapılır)."""
+    locked: list[dict[str, str]] = []
+    probs = view.get("probabilities")
+    if probs is not None:
+        probs = {k: v for k, v in probs.items() if k != "score_matrix"}
+        if not access.allows("predictions.markets"):
+            probs = {"1x2": probs["1x2"]}
+            locked.append(
+                {
+                    "key": "predictions.markets",
+                    "label": LOCK_LABELS["predictions.markets"],
+                    "required_plan": required_plan("predictions.markets"),
+                }
+            )
+        view["probabilities"] = probs
+    if not access.allows("predictions.uncertainty"):
+        if view.get("uncertainty"):
+            locked.append(
+                {
+                    "key": "predictions.uncertainty",
+                    "label": LOCK_LABELS["predictions.uncertainty"],
+                    "required_plan": required_plan("predictions.uncertainty"),
+                }
+            )
+        view["uncertainty"] = {}
+    if not access.allows("predictions.components"):
+        if view.get("components"):
+            locked.append(
+                {
+                    "key": "predictions.components",
+                    "label": LOCK_LABELS["predictions.components"],
+                    "required_plan": required_plan("predictions.components"),
+                }
+            )
+        view["components"] = {}
+        view["model"] = {**view["model"], "components": {}}
+    view["access"] = {"plan": access.plan, "locked": locked}
+    return view
+
+
 def create_predictions_router() -> APIRouter:
     router = APIRouter(tags=["predictions"])
 
     @router.get("/v1/predictions")
     async def list_predictions(
-        db: DbDep, services: ServicesDep, day: Annotated[date | None, Query(alias="date")] = None
+        db: DbDep,
+        services: ServicesDep,
+        user: OptionalUserDep,
+        day: Annotated[date | None, Query(alias="date")] = None,
     ) -> dict[str, Any]:
         local_day = day or services.clock().astimezone(TR).date()
         start, end = tr_day_bounds(local_day)
         ids = _latest_per_fixture().where(
             Prediction.kickoff_at >= start, Prediction.kickoff_at < end
         )
-        items = await _views(db, ids.subquery().select())
+        access = await access_for(db, user.user.id if user else None, services.clock())
+        items = [redact(v, access) for v in await _views(db, ids.subquery().select())]
         return {"date": local_day.isoformat(), "items": items, "disclaimer": DISCLAIMER}
 
     @router.get("/v1/predictions/fixtures/{fixture_id}")
-    async def fixture_prediction(fixture_id: int, db: DbDep) -> dict[str, Any]:
+    async def fixture_prediction(
+        fixture_id: int, db: DbDep, services: ServicesDep, user: OptionalUserDep
+    ) -> dict[str, Any]:
         ids = _latest_per_fixture().where(Prediction.fixture_id == fixture_id)
         items = await _views(db, ids.subquery().select())
         if not items:
             raise ApiError(404, "no_prediction", "Bu maç için tahmin yok")
-        return items[0]
+        access = await access_for(db, user.user.id if user else None, services.clock())
+        return redact(items[0], access)
 
     @router.get("/v1/predictions/performance")
     async def performance(

@@ -17,6 +17,7 @@ from sqlalchemy import text
 from mi_api import __version__
 from mi_api.admin.router import create_admin_router
 from mi_api.auth.router import create_auth_router
+from mi_api.billing.api import create_billing_router
 from mi_api.config import Settings
 from mi_api.context import Clock, Services, utcnow
 from mi_api.coupons.api import create_coupons_router
@@ -38,6 +39,7 @@ def create_app(
     clock: Clock = utcnow,
     limiter: Limiter | None = None,
     football_transport: httpx.AsyncBaseTransport | None = None,
+    payment_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     cfg = settings or Settings()
     db = Database(cfg.database_url.get_secret_value())
@@ -66,6 +68,7 @@ def create_app(
     app.state.football = FootballRuntime(
         cfg, clock=clock, redis=redis, transport=football_transport
     )
+    app.state.payment_transport = payment_transport
     app.add_middleware(RequestGuard, web_origins=cfg.web_origins, admin_origins=cfg.admin_origins)
     app.add_middleware(
         CORSMiddleware,
@@ -82,6 +85,7 @@ def create_app(
     app.include_router(create_predictions_router())
     app.include_router(create_coupons_router())
     app.include_router(create_virtual_router())
+    app.include_router(create_billing_router())
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

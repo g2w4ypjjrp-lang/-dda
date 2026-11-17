@@ -50,6 +50,21 @@ class Settings(BaseSettings):
     football_minute_budget: int = Field(default=10, ge=1)
     football_reserve_pct: int = Field(default=20, ge=0, le=90)
 
+    # Faz 6: ödeme. "none": satış kapalı. "simulator" yalnızca development/test. PayTR/iyzico test
+    # modunda başlar; canlı ödeme yalnızca payments_live_allowed (M-G5 onayı) açıkken.
+    payment_provider: Literal["none", "simulator", "paytr", "iyzico"] = "none"
+    payments_live_allowed: bool = False
+    payments_test_mode: bool = True
+    simulator_secret: SecretStr | None = None
+    paytr_merchant_id: str | None = None
+    paytr_merchant_key: SecretStr | None = None
+    paytr_merchant_salt: SecretStr | None = None
+    iyzico_api_key: SecretStr | None = None
+    iyzico_secret_key: SecretStr | None = None
+    public_api_url: str = "http://localhost:8080"
+    # Lisans anahtarı arama özeti için gizli "pepper" (base64, ≥ 32 bayt). Yoksa lisans üretilemez.
+    license_pepper: SecretStr | None = None
+
     # Faz 3: zamanlayıcı ML görevlerini ("ml" kuyruğu) yalnızca bu açıksa planlar; bu görevleri
     # ML işçisi (mi_ml.tasks, ayrı imaj) çalıştırır.
     ml_schedule_enabled: bool = False
@@ -74,6 +89,8 @@ class Settings(BaseSettings):
         key = self.football_api_key.get_secret_value() if self.football_api_key else ""
         if self.football_provider != "none" and not key.strip():
             raise ValueError("MI_FOOTBALL_PROVIDER seçiliyken MI_FOOTBALL_API_KEY zorunlu")
+        if not self.payments_test_mode and not self.payments_live_allowed:
+            raise ValueError("Canlı ödeme için MI_PAYMENTS_LIVE_ALLOWED=true gerekir (M-G5 onayı)")
         if not self.is_production_like:
             return self
         problems: list[str] = []
@@ -93,6 +110,8 @@ class Settings(BaseSettings):
         dsn = self.database_url.get_secret_value()
         if "sslmode=verify-full" not in dsn:
             problems.append("veritabanı bağlantısında sslmode=verify-full zorunlu")
+        if self.payment_provider == "simulator":
+            problems.append("ödeme simülatörü staging/production ortamında kullanılamaz")
         if problems:
             raise ValueError(f"{self.environment} ortamı için ayar hatası: " + "; ".join(problems))
         return self

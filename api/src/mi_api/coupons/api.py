@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from mi_api import audit
+from mi_api.billing.plans import access_for, consume, plan_required
 from mi_api.context import (
     DbDep,
     MetaDep,
@@ -290,6 +291,22 @@ def create_coupons_router() -> APIRouter:
         body: GenerateBody, user: UserDep, db: DbDep, services: ServicesDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"coupon_generate:user:{user.user.id}", 30, 600)
+        access = await access_for(db, user.user.id, services.clock())
+        if not access.allows("coupons.enabled"):
+            raise plan_required("coupons.enabled")
+        if body.size > int(access.get("coupons.max_legs", 0)):
+            raise ApiError(
+                403,
+                "plan_limit",
+                f"Paketinizde kupon en fazla {access.get('coupons.max_legs')} maç olabilir",
+            )
+        await consume(
+            db,
+            user.user.id,
+            "coupons.generate",
+            access.get("coupons.daily_generate"),
+            services.clock(),
+        )
         if body.markets and set(body.markets) - MARKET_CODES:
             raise ApiError(422, "unknown_market", "Bilinmeyen piyasa filtresi")
         now = services.clock()
@@ -325,6 +342,15 @@ def create_coupons_router() -> APIRouter:
         body: SaveBody, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"coupon_save:user:{user.user.id}", 30, 600)
+        access = await access_for(db, user.user.id, services.clock())
+        if not access.allows("coupons.enabled"):
+            raise plan_required("coupons.enabled")
+        if len({leg.prediction_id for leg in body.legs}) > int(access.get("coupons.max_legs", 0)):
+            raise ApiError(
+                403,
+                "plan_limit",
+                f"Paketinizde kupon en fazla {access.get('coupons.max_legs')} maç olabilir",
+            )
         now = services.clock()
         ids = sorted({leg.prediction_id for leg in body.legs})
         rows = (await db.execute(_candidate_query().where(Prediction.id.in_(ids)))).all()
@@ -413,13 +439,19 @@ def create_coupons_router() -> APIRouter:
 
     @router.get("/v1/coupons")
     async def my_coupons(
-        user: UserDep, db: DbDep, limit: Annotated[int, Query(ge=1, le=100)] = 30
+        user: UserDep,
+        db: DbDep,
+        services: ServicesDep,
+        limit: Annotated[int, Query(ge=1, le=100)] = 30,
     ) -> dict[str, Any]:
+        now = services.clock()
+        access = await access_for(db, user.user.id, now)
+        since = now - timedelta(days=int(access.get("history.days", 7)))
         coupons = (
             (
                 await db.execute(
                     select(Coupon)
-                    .where(Coupon.user_id == user.user.id)
+                    .where(Coupon.user_id == user.user.id, Coupon.created_at >= since)
                     .order_by(Coupon.created_at.desc(), Coupon.id.desc())
                     .limit(limit)
                 )
