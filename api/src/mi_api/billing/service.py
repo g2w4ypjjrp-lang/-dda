@@ -50,7 +50,9 @@ from mi_api.billing.providers import (
     SimulatorProvider,
 )
 from mi_api.config import Settings
+from mi_api.engage.notify import notify
 from mi_api.errors import ApiError
+from mi_api.football.api import TR
 
 PERIOD_DAYS = {"monthly": 30, "yearly": 365}
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -229,6 +231,17 @@ async def grant_subscription(
     )
     db.add(sub)
     await db.flush()
+    end = sub.current_period_end.astimezone(TR).strftime("%d.%m.%Y")
+    await notify(
+        db,
+        user_id,
+        "subscription",
+        f"{plan} paketiniz etkin",
+        f"Paketiniz {end} tarihine kadar geçerli. Otomatik yenileme yoktur.",
+        now=now,
+        link="/panel",
+        dedupe_key=f"subscription:{sub.id}",
+    )
     return sub
 
 
@@ -399,6 +412,16 @@ async def refund_order(db: AsyncSession, provider: Provider, order: Order, now: 
     order.status = "refunded"
     order.refunded_at = now
     order.refund_ref = ref
+    await notify(
+        db,
+        order.user_id,
+        "subscription",
+        f"Sipariş #{order.id} iade edildi",
+        "İade ödeme sağlayıcınıza iletildi; ilgili paket sona erdi.",
+        now=now,
+        link="/panel",
+        dedupe_key=f"refund:{order.id}",
+    )
     sub = (
         await db.execute(select(Subscription).where(Subscription.order_id == order.id))
     ).scalar_one_or_none()

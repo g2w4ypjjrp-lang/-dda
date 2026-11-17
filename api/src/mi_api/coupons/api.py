@@ -50,6 +50,7 @@ from mi_api.coupons.engine import (
     risk_text,
 )
 from mi_api.coupons.models import Coupon, CouponLeg
+from mi_api.engage.notify import notify
 from mi_api.errors import ApiError
 from mi_api.football.api import TR
 from mi_api.football.models import Competition, Fixture, Season, Team
@@ -248,6 +249,18 @@ async def settle_coupons(db: AsyncSession, now: datetime) -> dict[str, int]:
         else:
             coupon.status = "won"
         coupon.settled_at = now
+        if coupon.user_id is not None:
+            label = {"won": "tuttu", "lost": "tutmadı", "void": "geçersiz sayıldı"}[coupon.status]
+            await notify(
+                db,
+                coupon.user_id,
+                "coupon",
+                f"Kuponunuz {label}",
+                f"#{coupon.id} numaralı {coupon.legs_count} seçimlik kupon sonuçlandı.",
+                now=now,
+                link="/kuponlar",
+                dedupe_key=f"coupon:{coupon.id}",
+            )
         coupons_settled += 1
         await db.flush()
         # Bu kupona bağlı sanal biletler (Faz 5) aynı işlemde sonuçlanır.

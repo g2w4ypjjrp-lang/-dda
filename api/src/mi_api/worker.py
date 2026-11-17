@@ -66,6 +66,8 @@ app.conf.update(
         "coupons-settle": {"task": "mi.coupons.settle", "schedule": 900.0},
         # Kalp atışı: zamanlayıcı (beat) planlar, işçi çalıştırır; System Health ikisini de izler.
         "heartbeat": {"task": "mi.heartbeat", "schedule": 60.0},
+        # Favori maç başlıyor/bitti ve abonelik bitiyor bildirimleri (tekrarsız).
+        "notifications-scan": {"task": "mi.notifications.scan", "schedule": 300.0},
         "standings": {
             "task": "mi.football.sync",
             "schedule": 6 * 3600.0,
@@ -160,3 +162,20 @@ def heartbeat() -> str:
     if _settings.redis_url:
         SyncRedis.from_url(_settings.redis_url.get_secret_value()).set(HEARTBEAT_KEY, now, ex=900)
     return now
+
+
+async def _scan_notifications() -> dict[str, int]:
+    from mi_api.engage.scan import scan
+
+    settings = Settings()
+    db = Database(settings.database_url.get_secret_value(), pool_size=1)
+    try:
+        async with db.session() as session:
+            return await scan(session, datetime.now(UTC))
+    finally:
+        await db.close()
+
+
+@app.task(name="mi.notifications.scan")  # type: ignore[untyped-decorator]
+def notifications_scan() -> dict[str, int]:
+    return asyncio.run(_scan_notifications())

@@ -34,6 +34,7 @@ from mi_api.context import (
     revoke_sessions,
     roles_of,
 )
+from mi_api.engage import notify
 from mi_api.errors import ApiError
 from mi_api.models import EmailOutbox, EmailToken, RecoveryCode, User, UserSession
 from mi_api.ops import flags
@@ -268,6 +269,7 @@ def create_auth_router() -> APIRouter:
                 target_type="session", target_id=str(session.id), ip=meta.ip,
                 user_agent=meta.user_agent, details={"scope": "app", "mfa": False},
             )  # fmt: skip
+            await notify.login_alert(db, user.id, session.id, meta.ip, services.clock())
             return {
                 "status": "ok",
                 "mfa_required": False,
@@ -304,6 +306,7 @@ def create_auth_router() -> APIRouter:
             target_type="session", target_id=str(session.id), ip=meta.ip,
             user_agent=meta.user_agent, details={"scope": "app", "mfa": method},
         )  # fmt: skip
+        await notify.login_alert(db, user.id, session.id, meta.ip, services.clock())
         return {"status": "ok", "user": user_view(user, principal.roles)}
 
     @router.post("/logout")
@@ -366,6 +369,7 @@ def create_auth_router() -> APIRouter:
             db, "auth.password_reset", actor_type="user", actor_id=str(user.id),
             target_type="user", target_id=str(user.id), ip=meta.ip,
         )  # fmt: skip
+        await notify.security_event(db, user.id, "auth.password_reset", services.clock())
         return {"status": "ok"}
 
     @router.post("/password/change")
@@ -390,6 +394,7 @@ def create_auth_router() -> APIRouter:
             db, "auth.password_changed", actor_type="user", actor_id=str(user.id),
             target_type="user", target_id=str(user.id), ip=meta.ip,
         )  # fmt: skip
+        await notify.security_event(db, user.id, "auth.password_changed", services.clock())
         return {"status": "ok"}
 
     @router.post("/reauth")
@@ -449,6 +454,7 @@ def create_auth_router() -> APIRouter:
             db, "auth.mfa_enabled", actor_type="user", actor_id=str(user.id),
             target_type="user", target_id=str(user.id), ip=meta.ip,
         )  # fmt: skip
+        await notify.security_event(db, user.id, "auth.mfa_enabled", services.clock())
         return {"status": "ok", "recovery_codes": codes}
 
     @router.post("/mfa/disable")
@@ -477,6 +483,7 @@ def create_auth_router() -> APIRouter:
             db, "auth.mfa_disabled", actor_type="user", actor_id=str(user.id),
             target_type="user", target_id=str(user.id), ip=meta.ip,
         )  # fmt: skip
+        await notify.security_event(db, user.id, "auth.mfa_disabled", services.clock())
         return {"status": "ok"}
 
     @router.get("/sessions")
