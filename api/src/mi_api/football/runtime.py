@@ -20,6 +20,8 @@ PROVIDER_LABELS = {
     "none": "Yapılandırılmamış",
     "api_football": "API-Football (api-sports.io)",
     "football_data": "football-data.org",
+    # Yalnızca geliştirme/test ortamı: ml/scripts/seed_demo.py (üretimde çalışmayı reddeder).
+    "demo": "Demo verisi (test ortamı — gerçek değil)",
 }
 
 

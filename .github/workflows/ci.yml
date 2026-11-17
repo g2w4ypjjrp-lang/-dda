@@ -90,14 +90,80 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  web:
+    name: Web (derleme + uçtan uca, tam yığın)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mi_test
+          POSTGRES_PASSWORD: mi_test
+          POSTGRES_DB: mi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    env:
+      MI_ENVIRONMENT: test
+      MI_DATABASE_URL: postgresql://mi_test:mi_test@127.0.0.1:5432/mi_e2e
+      MI_REDIS_URL: redis://127.0.0.1:6379/0
+      MI_SECRET_KEK: a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=
+      MI_SESSION_COOKIE_SECURE: "false"
+      MI_LOG_JSON: "false"
+      MI_API_URL: http://127.0.0.1:8080
+      E2E_API_DIR: ${{ github.workspace }}/api
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: API ve demo verisi (yalnızca test ortamı)
+        run: |
+          (cd api && uv sync --locked && uv run mi-admin migrate)
+          (cd ml && uv sync --locked && uv run python scripts/seed_demo.py)
+          (cd api && nohup uv run mi-api --port 8080 > /tmp/api.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8080/ready && break; sleep 1; done
+      - name: Web derleme
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm audit --omit=dev --audit-level=moderate
+      - name: Uçtan uca testler (masaüstü + mobil)
+        working-directory: web
+        run: |
+          npx playwright install --with-deps chromium
+          (nohup npx next start -p 3000 > /tmp/web.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/ > /dev/null && break; sleep 1; done
+          npx playwright test --trace off
+      - if: failure()
+        run: tail -n 100 /tmp/api.log /tmp/web.log || true
+
   docker:
-    name: API ve ML imajı derlemesi
+    name: API, ML ve web imajı derlemesi
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t mi-api:ci api
       - run: docker build -f ml/Dockerfile -t mi-ml:ci .
+      - run: docker build -t mi-web:ci web
       - run: docker compose config --quiet
         env:
           MI_DB_PASSWORD: ci

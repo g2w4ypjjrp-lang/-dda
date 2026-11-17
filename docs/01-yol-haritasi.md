@@ -21,7 +21,7 @@ güvenlik → test → hata düzeltme → rapor. Bir faz, kabul kriterleri **ger
 api/        FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 + Redis   (Faz 1-)
             (Celery işçisi ve Beat programı api paketinde: mi_api.worker — Faz 2)
 ml/         Özellik mühendisliği, modeller, Optuna, kalibrasyon, backtest, ML işçisi (Faz 3)
-web/        Next.js + TypeScript + Tailwind + shadcn/ui + TanStack Query (Faz 7-)
+web/        Next.js + TypeScript + Tailwind + TanStack Query + RHF/Zod + Recharts (Faz 7-)
 deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştirme için)
 ```
 
@@ -41,9 +41,9 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 | 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ⏭️ Sıradaki |
 | 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ⏳ |
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ⏳ |
-| 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | ⏳ |
+| 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | 🟡 Çekirdek tamamlandı ([rapor](05-arayuz-raporu.md)); kupon, widget, bildirim kaldı |
 | 8 | 10 premium tasarım sistemi + Design Studio (önizleme, taslak, yayın, sürüm, geri alma) | ⏳ |
-| 9 | Super Admin: Command Center, 30 modül, Data Explorer, Action Center, Ctrl+K | ⏳ |
+| 9 | Super Admin: Command Center, 30 modül, Data Explorer, Action Center, Ctrl+K | 🟡 Başladı: Command Center, Veri Merkezi, Model Lab, Kullanıcılar, Denetim Kaydı |
 | 10 | Son testler: E2E, güvenlik, performans, yedek/geri yükleme, CI/CD, dağıtım | ⏳ |
 
 ### Faz 1 — Teknik temel ✅

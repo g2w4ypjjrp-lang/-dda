@@ -54,6 +54,16 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
+  web:
+    build:
+      context: ./web
+      args:
+        MI_API_URL: http://api:8080
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:3000:3000"
+
   # Futbol verisi işçisi ve zamanlayıcısı (Faz 2). Sağlayıcı anahtarı yoksa işler "skipped" olur.
   worker:
     build: ./api
