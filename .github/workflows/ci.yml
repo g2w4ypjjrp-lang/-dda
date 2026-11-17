@@ -1,9 +1,11 @@
 name: CI
 
+# Actions dakikalarını korumak için: yalnızca ana dala gönderimde, PR'larda ve elle.
 on:
   push:
-    branches: ["**"]
+    branches: [ana]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
