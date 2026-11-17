@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+
+import { FavoriteButton } from "@/components/engage";
 import { use } from "react";
 
 import { Card, CardHeader, Empty, ErrorState, Skeleton, TeamCrest, cx } from "@/components/ui";
@@ -45,7 +47,10 @@ export default function StandingsPage({ params }: { params: Promise<{ id: string
         <Card className="mt-4"><ErrorState error={q.error} onRetry={() => q.refetch()} /></Card>
       ) : (
         <>
-          <h1 className="mt-4 text-[28px] font-semibold tracking-tight">{q.data.competition.name}</h1>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h1 className="text-[28px] font-semibold tracking-tight">{q.data.competition.name}</h1>
+            <FavoriteButton kind="competition" refId={q.data.competition.id} label={q.data.competition.name} />
+          </div>
           <p className="mt-1 text-[13px] text-muted">{q.data.season ? `${q.data.season.label} sezonu · güncelleme ${ago(q.data.fetched_at)}` : "Puan durumu henüz alınmadı"}</p>
           {q.data.groups.length === 0 ? (
             <Card className="mt-6"><Empty title="Puan durumu yok">Lig takibe alındığında sağlayıcıdan düzenli olarak çekilir.</Empty></Card>

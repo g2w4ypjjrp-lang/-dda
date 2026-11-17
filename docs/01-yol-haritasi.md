@@ -41,7 +41,7 @@ deploy/     Üretim dağıtım belgeleri (Docker Compose kökte, yerel geliştir
 | 4 | Tahmin ve kupon: piyasa olasılıkları, otomatik kupon, birleşik olasılık, geçmiş | ✅ Tamamlandı ([rapor](06-faz4-raporu.md), [İY + kupona ekle](09-ilk-yari-raporu.md)); oran/EV M-G2 ile |
 | 5 | Sanal simülasyon: sanal bakiye defteri, risk metrikleri, raporlar | ✅ Tamamlandı ([rapor](07-faz5-raporu.md)) |
 | 6 | SaaS: FREE/PRO/ELITE, abonelik, ödeme, lisans | ✅ Tamamlandı ([rapor](08-faz6-raporu.md)); canlı ödeme M-G5 ile |
-| 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | 🟡 Çekirdek, kupon, sanal portföy ve paketler tamamlandı; widget, bildirim, PWA kaldı |
+| 7 | Kullanıcı arayüzü: ana sayfa, dashboard, maç merkezi, AI analiz, kupon, mobil/PWA | ✅ Tamamlandı ([arayüz](05-arayuz-raporu.md), [kalanlar](12-faz7-raporu.md)); e-posta/push M-G6 ile |
 | 8 | 10 premium tasarım sistemi + Design Studio (önizleme, taslak, yayın, sürüm, geri alma) | ✅ Tamamlandı ([rapor](10-faz8-raporu.md)) |
 | 9 | Super Admin: Command Center, 30 modül, Data Explorer, Action Center, Ctrl+K | ✅ Çekirdek tamamlandı ([rapor](11-faz9-raporu.md)); içerik/bildirim/API/yedek modülleri Faz 7 ve 10 ile |
 | 10 | Son testler: E2E, güvenlik, performans, yedek/geri yükleme, CI/CD, dağıtım | ⏳ |

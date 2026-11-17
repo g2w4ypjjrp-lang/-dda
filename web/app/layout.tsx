@@ -21,7 +21,8 @@ export const metadata: Metadata = {
   title: { default: "Match Intelligence AI", template: "%s · Match Intelligence AI" },
   description:
     "Gerçek futbol verisi, açıklanabilir yapay zekâ ve şeffaf olasılıklar. Tahminler kazanç garantisi değildir.",
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Match IQ", statusBarStyle: "black-translucent" },
   manifest: "/manifest.webmanifest",
 };
 

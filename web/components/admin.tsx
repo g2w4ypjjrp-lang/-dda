@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertTriangle, BrainCircuit, CheckCircle2, CircleDashed, Clock, Coins, Crown, Database, FileClock, HeartPulse,
-  KeyRound, LayoutGrid, LogOut, Palette, Search, ShieldAlert, ShieldCheck, Siren, TableProperties, Ticket, ToggleRight, Users,
+  KeyRound, LayoutGrid, LogOut, Newspaper, Palette, Search, ShieldAlert, ShieldCheck, Siren, TableProperties, Ticket, ToggleRight, Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -34,6 +34,7 @@ export const NAV = [
   { group: "Platform", href: "/yonetim/sistem", label: "Sistem Sağlığı", icon: HeartPulse, perm: "system.read" },
   { group: "Platform", href: "/yonetim/bayraklar", label: "Özellik Bayrakları", icon: ToggleRight, perm: null },
   { group: "Platform", href: "/yonetim/tasarim", label: "Design Studio", icon: Palette, perm: "design.read" },
+  { group: "Platform", href: "/yonetim/icerik", label: "İçerik & Duyurular", icon: Newspaper, perm: null },
 ] as const;
 
 const AdminContext = createContext<AdminMe | null>(null);
@@ -138,7 +139,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (isLoading || !me) {
     return <div className="grid min-h-dvh place-items-center"><Skeleton className="h-10 w-48" /></div>;
   }
-  const items = NAV.filter((n) => !n.perm || can(me, n.perm)).filter((n) => n.href !== "/yonetim/bayraklar" || can(me, "flags.manage") || can(me, "settings.read"));
+  const items = NAV.filter((n) => !n.perm || can(me, n.perm)).filter((n) => n.href !== "/yonetim/bayraklar" || can(me, "flags.manage") || can(me, "settings.read"))
+    .filter((n) => n.href !== "/yonetim/icerik" || can(me, "content.manage") || can(me, "notifications.manage"));
   return (
     <AdminContext.Provider value={me}>
       <ReauthProvider>

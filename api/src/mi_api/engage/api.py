@@ -8,12 +8,12 @@ Yönetim: içerik ve SSS düzenleme (``content.manage``), sistem duyurusu (``not
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, literal, select, update
+from sqlalchemy import func, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from mi_api import audit
@@ -329,6 +329,65 @@ def create_engage_router() -> APIRouter:
             .on_conflict_do_nothing()
         )
         return {"kind": body.kind, "ref_id": body.ref_id, "favorite": True}
+
+    @router.get("/v1/favorites/fixtures")
+    async def favorite_fixtures(
+        user: UserDep,
+        db: DbDep,
+        services: ServicesDep,
+        days: Annotated[int, Query(ge=1, le=14)] = 7,
+    ) -> dict[str, Any]:
+        """Favori takım/lig maçları ve kaydedilmiş maçlar: dün ile ``days`` gün sonrası arası."""
+        from mi_api.football.api import _fixture_query, fixture_view
+
+        favs = (
+            (await db.execute(select(Favorite).where(Favorite.user_id == user.user.id)))
+            .scalars()
+            .all()
+        )
+        teams = [f.ref_id for f in favs if f.kind == "team"]
+        comps = [f.ref_id for f in favs if f.kind == "competition"]
+        saved = [f.ref_id for f in favs if f.kind == "fixture"]
+        now = services.clock()
+        out: dict[str, list[dict[str, Any]]] = {"teams": [], "competitions": [], "saved": []}
+        window = (
+            Fixture.kickoff_at >= now - timedelta(days=1),
+            Fixture.kickoff_at <= now + timedelta(days=days),
+        )
+        if teams:
+            rows = (
+                await db.execute(
+                    _fixture_query()
+                    .where(
+                        or_(Fixture.home_team_id.in_(teams), Fixture.away_team_id.in_(teams)),
+                        *window,
+                    )
+                    .order_by(Fixture.kickoff_at)
+                    .limit(30)
+                )
+            ).all()
+            out["teams"] = [fixture_view(fx, h, a, c, se, now) for fx, h, a, c, se in rows]
+        if comps:
+            rows = (
+                await db.execute(
+                    _fixture_query()
+                    .where(Competition.id.in_(comps), *window)
+                    .order_by(Fixture.kickoff_at)
+                    .limit(30)
+                )
+            ).all()
+            out["competitions"] = [fixture_view(fx, h, a, c, se, now) for fx, h, a, c, se in rows]
+        if saved:
+            rows = (
+                await db.execute(
+                    _fixture_query()
+                    .where(Fixture.id.in_(saved))
+                    .order_by(Fixture.kickoff_at.desc())
+                    .limit(30)
+                )
+            ).all()
+            out["saved"] = [fixture_view(fx, h, a, c, se, now) for fx, h, a, c, se in rows]
+        return out
 
     @router.delete("/v1/favorites/{kind}/{ref_id}")
     async def remove_favorite(

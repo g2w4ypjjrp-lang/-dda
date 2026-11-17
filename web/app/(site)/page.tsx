@@ -40,16 +40,12 @@ const PLANS = [
   { name: "ELITE", tag: "Profesyonel", items: ["Model karşılaştırmaları", "Gelişmiş filtreler ve raporlar", "Gelişmiş sanal portföy simülasyonu", "Yeni özelliklere öncelikli erişim"] },
 ];
 
-const FAQ = [
-  { q: "Tahminler kazanç garantisi veriyor mu?", a: "Hayır. Olasılıklar istatistiksel tahmindir; en iyi model bile sık sık yanılır. Platform gerçek para ile bahis yapmaz ve aracılık etmez." },
-  { q: "Model neden bazı maçlarda tahmin vermiyor?", a: "Takım geçmişi yetersizse, veri eskiyse, modeller birbirinden çok farklı düşünüyorsa veya belirsizlik çok genişse tahmin yayımlanmaz ve nedeni gösterilir." },
-  { q: "Model performansını nereden görebilirim?", a: "Model Şeffaflığı sayfasında; yalnızca maçtan önce yayımlanmış ve sonuçlanmış tahminlerden hesaplanan Brier skoru, log loss ve kalibrasyon grafiği yer alır." },
-  { q: "Verileriniz nereden geliyor?", a: "Lisanslı futbol veri sağlayıcılarından. Her maç sayfasında kaynak ve son güncelleme zamanı yazar." },
-];
+
 
 export default function HomePage() {
   const { day, fixtures, predictions } = useToday();
   const perf = useQuery({ queryKey: ["performance"], queryFn: () => api<Performance>("/v1/predictions/performance") });
+  const faq = useQuery({ queryKey: ["content", "faq"], queryFn: () => api<{ items: { id: number; question: string; answer: string }[] }>("/v1/content/faq") });
   const items = fixtures.data?.items ?? [];
   const preds = predictions.data?.items ?? [];
   const byFixture = new Map(preds.map((p) => [p.fixture_id, p]));
@@ -194,7 +190,7 @@ export default function HomePage() {
           <h2 className="text-[28px] font-semibold tracking-tight">Sık sorulan sorular</h2>
         </div>
         <div className="divide-y divide-line rounded-card border border-line bg-surface">
-          {FAQ.map((f) => (
+          {(faq.data?.items ?? []).slice(0, 5).map((f) => ({ q: f.question, a: f.answer })).map((f) => (
             <details key={f.q} className="group px-5 py-4">
               <summary className="cursor-pointer list-none text-[14px] font-medium text-text marker:hidden">
                 <span className="flex items-center justify-between gap-4">

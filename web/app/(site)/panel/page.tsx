@@ -8,12 +8,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { chooseDesign, useDesign } from "@/components/design";
 import { DesignSwatch } from "@/components/DesignSwatch";
-import { MatchList } from "@/components/match";
-import { Badge, Button, Card, CardHeader, Empty, FormError, Input, Skeleton, Stat } from "@/components/ui";
+import { DashboardGrid } from "@/components/widgets";
+import { Badge, Button, Card, CardHeader, FormError, Input, Skeleton } from "@/components/ui";
 import { api, post } from "@/lib/api";
-import { ORDER_STATUS, SUB_SOURCE, SUB_STATUS, ago, fmtDateTime, fmtDay, money, trToday } from "@/lib/format";
+import { ORDER_STATUS, SUB_SOURCE, SUB_STATUS, ago, fmtDay, money } from "@/lib/format";
 import { useLogout, useMe } from "@/lib/hooks";
-import type { BillingMe, FixtureList, Me, Prediction } from "@/lib/types";
+import type { BillingMe, Me } from "@/lib/types";
 import Link from "next/link";
 
 function MfaCard({ me }: { me: Me }) {
@@ -267,9 +267,6 @@ export default function PanelPage() {
   const { data: me, isLoading } = useMe();
   const logout = useLogout();
   const leaving = useRef(false); // çıkışta "oturum yok → giriş" yönlendirmesi devreye girmesin
-  const day = trToday();
-  const fixtures = useQuery({ queryKey: ["fixtures", day], queryFn: () => api<FixtureList>(`/v1/football/fixtures?date=${day}`), enabled: !!me });
-  const predictions = useQuery({ queryKey: ["predictions", day], queryFn: () => api<{ items: Prediction[] }>(`/v1/predictions?date=${day}`), enabled: !!me });
   const billing = useQuery({ queryKey: ["billing", "me"], queryFn: () => api<BillingMe>("/v1/billing/me"), enabled: !!me });
 
   useEffect(() => {
@@ -277,8 +274,6 @@ export default function PanelPage() {
   }, [isLoading, me, router]);
 
   if (isLoading || !me) return <div className="space-y-4 py-8"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
-  const byFixture = new Map((predictions.data?.items ?? []).map((p) => [p.fixture_id, p]));
-  const items = fixtures.data?.items ?? [];
 
   return (
     <div className="py-8">
@@ -292,30 +287,18 @@ export default function PanelPage() {
         </Button>
       </div>
 
-      <Card className="mt-6 grid grid-cols-2 gap-6 p-6 md:grid-cols-4">
-        <Stat label="Üyelik" value={billing.data?.plan ?? "—"} tone={billing.data && billing.data.plan !== "FREE" ? "gold" : undefined} hint={billing.data?.current ? `${fmtDay(billing.data.current.current_period_end)} tarihine kadar` : "Ücretsiz paket"} />
-        <Stat label="E-posta" value={me.email_verified ? "Doğrulandı" : "Bekliyor"} tone={me.email_verified ? "teal" : undefined} hint={me.email} />
-        <Stat label="İki adımlı doğrulama" value={me.mfa_enabled ? "Açık" : "Kapalı"} tone={me.mfa_enabled ? "teal" : "red"} />
-        <Stat label="Üyelik tarihi" value={fmtDateTime(me.created_at).split(" ").slice(0, 2).join(" ")} />
-      </Card>
+      <div className="mt-6"><DashboardGrid me={me} /></div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <Card>
-          <CardHeader eyebrow="Bugün" title="Günün maçları" />
-          <div className="mt-3 divide-y divide-line border-t border-line">
-            {fixtures.isLoading ? <Skeleton className="m-5 h-24" /> : items.length === 0 ? (
-              <Empty title="Bugün maç yok veya veri henüz gelmedi" />
-            ) : <MatchList fixtures={items.slice(0, 10)} byFixture={byFixture} />}
-          </div>
-        </Card>
-        <div className="space-y-6">
+      <section aria-labelledby="hesap-baslik" className="mt-12">
+        <h2 id="hesap-baslik" className="eyebrow mb-4">Hesap ve güvenlik</h2>
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           <PlanCard billing={billing.data} />
           <MfaCard me={me} />
           <AppearanceCard />
           <SessionsCard />
           <DeleteAccount me={me} />
         </div>
-      </div>
+      </section>
     </div>
   );
 }

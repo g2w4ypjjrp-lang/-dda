@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, UserRound } from "lucide-react";
 import Link from "next/link";
 import { use, useState } from "react";
 
+import { FavoriteButton } from "@/components/engage";
 import { StatusPill } from "@/components/match";
 import { PredictionPanel } from "@/components/prediction";
 import { Badge, Card, CardHeader, Empty, ErrorState, Skeleton, TeamCrest, cx } from "@/components/ui";
@@ -151,7 +152,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
       <Card className="mt-4 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg-elevated px-5 py-3 text-[12.5px] text-text-2">
           <Link href={`/ligler/${d.competition.id}`} className="font-medium hover:text-text">{d.competition.name} · {d.season.label}{d.round ? ` · ${d.round}` : ""}</Link>
-          <span>{fmtDate(d.kickoff_at)} · {fmtTime(d.kickoff_at)}</span>
+          <span className="flex items-center gap-3">{fmtDate(d.kickoff_at)} · {fmtTime(d.kickoff_at)}<FavoriteButton kind="fixture" refId={d.id} label={`${d.home.name} – ${d.away.name}`} /></span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-5 py-8 sm:px-10">
           {[d.home, null, d.away].map((t, i) =>
@@ -160,6 +161,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                 <TeamCrest name={t.name} logo={t.logo_url} size={56} />
                 <span className="text-[15px] font-semibold sm:text-lg">{t.name}</span>
                 <span className="text-[11px] text-muted">{i === 0 ? "Ev sahibi" : "Deplasman"}</span>
+                <FavoriteButton kind="team" refId={t.id} label={t.name} compact />
               </div>
             ) : (
               <div key="score" className="flex flex-col items-center gap-2">

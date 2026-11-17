@@ -18,6 +18,8 @@ export function SiteFooter() {
           <ul className="space-y-2 text-[13px] text-text-2">
             <li><Link href="/maclar" className="hover:text-text">Maç Merkezi</Link></li>
             <li><Link href="/performans" className="hover:text-text">Model Şeffaflığı</Link></li>
+            <li><Link href="/paketler" className="hover:text-text">Paketler</Link></li>
+            <li><Link href="/sss" className="hover:text-text">Sık sorulan sorular</Link></li>
             <li><Link href="/kayit" className="hover:text-text">Hesap oluştur</Link></li>
           </ul>
         </div>
@@ -25,6 +27,10 @@ export function SiteFooter() {
           <div className="eyebrow mb-3">Yasal</div>
           <ul className="space-y-2 text-[13px] text-text-2">
             <li><Link href="/risk" className="hover:text-text">Risk bildirimi</Link></li>
+            <li><Link href="/yasal/kullanim-kosullari" className="hover:text-text">Kullanım koşulları</Link></li>
+            <li><Link href="/yasal/gizlilik" className="hover:text-text">Gizlilik ve KVKK</Link></li>
+            <li><Link href="/yasal/mesafeli-satis" className="hover:text-text">Mesafeli satış sözleşmesi</Link></li>
+            <li><Link href="/yasal/cerezler" className="hover:text-text">Çerez politikası</Link></li>
           </ul>
         </div>
       </div>

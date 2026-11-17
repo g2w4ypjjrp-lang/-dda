@@ -58,15 +58,15 @@ geçerse yayımlanır; demo verisinde geçmiyor — eşiği demo için gevşetme
 web `lib/design.ts` + `components/design.tsx` (`useLayout()`); yeni varyant = şema + defaults +
 `designAttrs`/CSS + bileşen. Faz 9 yönetim: `docs/11-faz9-raporu.md` — `mi_api/ops/` (overview, health,
 actions, explorer, flags); yeni Data Explorer varlığı yalnızca beyaz listeye açık sütunla eklenir.
+Faz 7 kalanları: `docs/12-faz7-raporu.md` — `mi_api/engage/` (bildirim için `notify(..., dedupe_key=)`,
+güvenlik kategorisi kapatılamaz); panel bileşeni = `WIDGETS` (API) + `components/widgets.tsx`.
 Paket hakları `mi_api.billing.plans` ile **backend'de** kontrol edilir; yeni bir ücretli özellik
 eklerken `plan_entitlements` anahtarı + `ENTITLEMENTS` tipi + `LOCK_LABELS` + geçişte tohum değeri ekleyin.
 Testlerde ücretli kullanıcı: `conftest.member(...)`; E2E'de `e2e/support.ts` → `grantPlan`.
 Canlı ödeme (M-G5) kullanıcı onayı olmadan açılmaz.
 
 Sıradakiler:
-1. Faz 7 kalanları: PWA, bildirimler (uygulama içi; e-posta M-G6), kişiselleştirilebilir dashboard
-   widget'ları, içerik yönetimi (SSS, yasal metinler M-G4).
-2. Faz 10: güvenlik testleri, performans, görsel regresyon, yedek/geri yükleme, dağıtım (M-G3),
+1. Faz 10: güvenlik testleri, performans, görsel regresyon, yedek/geri yükleme, dağıtım (M-G3),
    dört göz onayı, merkezi log/izleme.
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

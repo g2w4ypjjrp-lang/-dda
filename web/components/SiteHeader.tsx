@@ -11,6 +11,7 @@ import { fmtDate, trToday } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 import type { FixtureList, Prediction } from "@/lib/types";
 import { useLayout } from "./design";
+import { NotificationBell } from "./engage";
 import { Logo } from "./Logo";
 import { SiteFooter } from "./SiteFooter";
 import { cx } from "./ui";
@@ -60,6 +61,7 @@ function Account({ stacked = false }: { stacked?: boolean }) {
           <ShieldCheck className="size-4" aria-hidden /> Yönetim
         </Link>
       ) : null}
+      <NotificationBell />
       {me ? (
         <Link href="/panel" className="inline-flex h-9 items-center gap-2 rounded-ctl border border-line-strong bg-surface-2 px-3 text-[13px] font-medium text-text hover:bg-surface-3">
           <LayoutDashboard className="size-4 text-gold" aria-hidden />
