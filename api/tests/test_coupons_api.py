@@ -10,7 +10,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from conftest import Clock, make_staff, member, new_client, use
+from conftest import Clock, make_staff, member, new_client, signup_and_login, use
 from coupon_support import NOW, markets, poisson_matrix
 
 
@@ -215,3 +215,79 @@ async def test_coupon_must_precede_kickoff_db(
             " VALUES (%s, %s, 'manual', 1, 0.5, '{}')",
             (NOW, NOW - timedelta(minutes=1)),
         )
+
+
+async def test_first_half_preview_save_and_settle(
+    app: Any, sql: psycopg.Connection[Any], clock: Clock, seeded: dict[str, Any]
+) -> None:
+    p, fx = seeded["preds"], seeded["fixtures"]
+    async with new_client(app) as free:
+        await signup_and_login(free, "free@ornek.com")
+        body = {"legs": [{"prediction_id": p[0], "market": "ht_1x2", "pick": "home"}]}
+        r = await free.post("/v1/coupons/preview", json=body)
+        assert r.status_code == 403 and r.json()["code"] == "plan_required"
+        pred = (await free.get(f"/v1/predictions/fixtures/{fx[0]}")).json()
+        assert "first_half" not in pred["probabilities"]  # FREE: İY piyasaları gönderilmez
+    async with new_client(app) as c:
+        await member(c, sql, "kupon@ornek.com", plan="PRO")
+        pred = (await c.get(f"/v1/predictions/fixtures/{fx[0]}")).json()
+        fh = pred["probabilities"]["first_half"]
+        assert fh["available"] is True and set(fh["ht_ft"]) >= {"1/1", "X/2"}
+
+        legs = [
+            {"prediction_id": p[0], "market": "ht_1x2", "pick": "home"},
+            {"prediction_id": p[0], "market": "total", "pick": "over_2.5"},
+        ]
+        r = await c.post("/v1/coupons/preview", json={"legs": legs})
+        assert r.status_code == 200, r.text
+        prev = r.json()
+        single = [leg["probability"] for leg in prev["legs"]]
+        # Aynı maçta İY 1 ile 2.5 Üst pozitif ilişkili: birleşik > çarpım.
+        assert prev["joint_probability"] > single[0] * single[1]
+        assert prev["monte_carlo"]["converged"] is True
+        assert sql.execute("SELECT count(*) FROM coupons").fetchone()[0] == 0  # önizleme kaydetmez
+
+        r = await c.post(
+            "/v1/coupons/preview",
+            json={"legs": [{"prediction_id": p[3], "market": "ht_1x2", "pick": "draw"}]},
+        )
+        assert r.status_code == 422 and r.json()["code"] == "market_unavailable"
+
+        saved = await c.post(
+            "/v1/coupons",
+            json={
+                "legs": [
+                    {"prediction_id": p[0], "market": "ht_ft", "pick": "1/1"},
+                    {"prediction_id": p[1], "market": "ht_total", "pick": "over_0.5"},
+                ]
+            },
+        )
+        assert saved.status_code == 201, saved.text
+        coupon = saved.json()
+
+    sql.execute(
+        "UPDATE football_fixtures SET status='finished', status_detail='FT', home_goals=3, away_goals=1,"
+        " ft_home=3, ft_away=1, ht_home=2, ht_away=0 WHERE id=%s",
+        (fx[0],),
+    )
+    sql.execute(
+        "UPDATE football_fixtures SET status='finished', status_detail='FT', home_goals=1, away_goals=1,"
+        " ft_home=1, ft_away=1 WHERE id=%s",
+        (fx[1],),
+    )
+    clock.advance(hours=6)
+    analyst = await make_staff(app, sql, clock, "analist@ornek.com", "ANALYST")
+    async with use(analyst.client) as a:
+        assert (await a.post("/admin/v1/coupons/settle")).json() == {"legs": 1, "coupons": 0}
+        legs_now = dict(sql.execute("SELECT position, result FROM coupon_legs").fetchall())
+        assert legs_now == {1: "won", 2: "pending"}  # İY skoru gelmedi: beklemede
+    clock.advance(days=4)
+    later = await make_staff(
+        app, sql, clock, "analist2@ornek.com", "ANALYST"
+    )  # oturum süresi doldu
+    async with use(later.client) as a:
+        assert (await a.post("/admin/v1/coupons/settle")).json() == {"legs": 1, "coupons": 1}
+    legs_now = dict(sql.execute("SELECT position, result FROM coupon_legs").fetchall())
+    assert legs_now == {1: "won", 2: "void"}  # İY skoru hiç gelmedi: geçersiz
+    status = sql.execute("SELECT status FROM coupons WHERE id=%s", (coupon["id"],)).fetchone()[0]
+    assert status == "won"

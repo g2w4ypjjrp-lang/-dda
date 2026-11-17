@@ -90,8 +90,8 @@ def load_league(
         played = m.home_goals >= 0
         sql.execute(
             "INSERT INTO football_fixtures (provider, external_id, season_id, kickoff_at, status, status_detail,"
-            " home_team_id, away_team_id, home_goals, away_goals, ft_home, ft_away, fetched_at)"
-            " VALUES ('test', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " home_team_id, away_team_id, home_goals, away_goals, ft_home, ft_away, ht_home, ht_away, fetched_at)"
+            " VALUES ('test', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 str(m.fixture_id),
                 seasons[year],
@@ -104,6 +104,8 @@ def load_league(
                 m.away_goals if played else None,
                 m.home_goals if played else None,
                 m.away_goals if played else None,
+                m.ht_home if played else None,
+                m.ht_away if played else None,
                 fetched_at,
             ),
         )

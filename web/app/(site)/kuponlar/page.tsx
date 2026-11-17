@@ -1,13 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Dice5, Info, Save, ShieldAlert, Sparkles } from "lucide-react";
+import { CheckCircle2, Dice5, Info, ListChecks, Save, ShieldAlert, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge, Button, Card, CardHeader, Empty, FormError, Notice, Skeleton, cx } from "@/components/ui";
 import { ApiError, api, post } from "@/lib/api";
 import { fmtDateTime, fmtTime, pct, sb, shiftDay, trToday } from "@/lib/format";
+import { basket, useBasket } from "@/lib/basket";
 import { useMe } from "@/lib/hooks";
 
 interface DraftLeg {
@@ -15,10 +16,10 @@ interface DraftLeg {
   reliability: "high" | "medium" | "low"; home: string; away: string; kickoff_at: string; competition: { name: string };
 }
 interface Draft {
-  profile: "low" | "balanced" | "high"; legs: DraftLeg[]; joint_probability: number; one_in: number | null;
+  profile: "low" | "balanced" | "high" | "manual"; legs: DraftLeg[]; joint_probability: number; one_in: number | null;
   monte_carlo: { runs: { n: number; p: number; std_error: number }[]; converged: boolean; note: string };
   assumption: string; risk: string; odds_note: string; disclaimer: string; params: Record<string, unknown>;
-  candidates_considered: number;
+  candidates_considered?: number;
 }
 interface SavedLeg { position: number; home: string; away: string; kickoff_at: string; label: string; probability: number; result: string; score: { home: number; away: number } | null }
 interface Saved { id: number; created_at: string; profile: string; status: string; joint_probability: number; legs: SavedLeg[] }
@@ -33,6 +34,9 @@ const MARKETS = [
   { key: "double_chance", label: "Çifte şans" },
   { key: "total", label: "Alt/Üst" },
   { key: "btts", label: "Karşılıklı gol" },
+  { key: "ht_1x2", label: "İlk yarı sonucu" },
+  { key: "ht_total", label: "İY alt/üst" },
+  { key: "ht_ft", label: "İY/MS" },
 ];
 const REL = { high: { tone: "teal", label: "Yüksek" }, medium: { tone: "gold", label: "Orta" }, low: { tone: "neutral", label: "Düşük" } } as const;
 const STATUS = { pending: { tone: "neutral", label: "Bekliyor" }, won: { tone: "teal", label: "Tuttu" }, lost: { tone: "red", label: "Tutmadı" }, void: { tone: "amber", label: "Geçersiz" } } as const;
@@ -77,6 +81,107 @@ function VirtualTicket({ couponId, probability }: { couponId: number; probabilit
   );
 }
 
+function DraftCard({ d, eyebrow, title, note, onSaved }: { d: Draft; eyebrow: string; title: string; note?: string; onSaved?: () => void }) {
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState<number | null>(null);
+  const save = useMutation({
+    mutationFn: () => post<Saved>("/v1/coupons", { profile: d.profile, params: d.params ?? {}, legs: d.legs.map((l) => ({ prediction_id: l.prediction_id, market: l.market, pick: l.pick })) }),
+    onSuccess: (c) => { setSaved(c.id); onSaved?.(); qc.invalidateQueries({ queryKey: ["coupons"] }); },
+  });
+  return (
+    <Card className="rise">
+      <CardHeader eyebrow={eyebrow} title={title} action={note ? <span className="text-[11.5px] text-muted">{note}</span> : undefined} />
+      <ul className="mt-3 divide-y divide-line border-y border-line">
+        {d.legs.map((l) => (
+          <li key={`${l.prediction_id}-${l.market}-${l.pick}`} className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-3">
+            <div className="min-w-0">
+              <Link href={`/maclar/${l.fixture_id}`} className="block truncate text-[13.5px] font-medium hover:text-gold">{l.home} – {l.away}</Link>
+              <div className="text-[11.5px] text-muted">{l.competition.name} · {fmtTime(l.kickoff_at)}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[12.5px] text-text-2">{l.label}</span>
+              <Badge tone={REL[l.reliability].tone}>{REL[l.reliability].label}</Badge>
+              <span className="num w-12 text-right text-[14px] font-semibold">{pct(l.probability)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-5 p-5 sm:grid-cols-[auto_1fr]">
+        <div className="rounded-ctl border border-line bg-bg-elevated px-5 py-4 text-center">
+          <div className="eyebrow mb-1">Birleşik olasılık</div>
+          <div className="num text-3xl font-semibold text-gold">{pct(d.joint_probability, 1)}</div>
+          {d.one_in && <div className="mt-1 text-[11.5px] text-muted">≈ her {d.one_in.toFixed(1)} kupondan 1</div>}
+        </div>
+        <div className="space-y-2 text-[12.5px] leading-relaxed text-text-2">
+          <p>{d.risk}</p>
+          <p className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
+            {d.monte_carlo.converged && <Badge tone="teal"><CheckCircle2 className="size-3" aria-hidden />Simülasyon doğruladı</Badge>}
+            {d.monte_carlo.runs.map((r) => <span key={r.n} className="num">{r.n.toLocaleString("tr-TR")} sim: {pct(r.p, 1)} ± {pct(r.std_error, 2)}</span>)}
+          </p>
+          <p className="text-[11.5px] text-muted">{d.assumption}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4">
+        <Button onClick={() => save.mutate()} loading={save.isPending} disabled={saved !== null}>
+          <Save className="size-4" aria-hidden />{saved ? "Kaydedildi" : "Kuponu kaydet"}
+        </Button>
+        <span className="text-[11.5px] text-muted">Kayıtlı kupon değiştirilemez; sonuçlar maçlar bitince işlenir.</span>
+        <FormError error={save.error} />
+      </div>
+      {saved && <div className="border-t border-line px-5 py-4"><VirtualTicket couponId={saved} probability={d.joint_probability} /></div>}
+      <div className="space-y-1.5 border-t border-line bg-bg-elevated px-5 py-3 text-[11.5px] text-muted">
+        <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.odds_note}</p>
+        <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.disclaimer}</p>
+      </div>
+    </Card>
+  );
+}
+
+/** Maç sayfalarından "Kupona ekle" ile seçilenler. Olasılık sunucuda yeniden hesaplanır. */
+function Basket() {
+  const legs = useBasket();
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  const key = legs.map((l) => `${l.prediction_id}:${l.market}:${l.pick}`).join("|");
+  const preview = useQuery({
+    queryKey: ["coupon-preview", key],
+    queryFn: () => post<Draft>("/v1/coupons/preview", { profile: "manual", legs: legs.map((l) => ({ prediction_id: l.prediction_id, market: l.market, pick: l.pick })) }),
+    enabled: ready && legs.length > 0,
+    retry: false,
+  });
+  if (!ready || legs.length === 0) return null;
+  return (
+    <div className="space-y-3" data-testid="basket">
+      <Card>
+        <CardHeader eyebrow="Seçimlerim" title={`Kupona eklenenler (${legs.length})`}
+          action={<Button size="sm" variant="ghost" onClick={() => basket.clear()}><Trash2 className="size-3.5" aria-hidden />Temizle</Button>} />
+        <ul className="mt-3 divide-y divide-line border-t border-line">
+          {legs.map((l) => (
+            <li key={`${l.prediction_id}-${l.market}-${l.pick}`} className="flex items-center gap-3 px-5 py-2.5 text-[12.5px]">
+              <ListChecks className="size-4 shrink-0 text-muted" aria-hidden />
+              <Link href={`/maclar/${l.fixture_id}`} className="min-w-0 flex-1 truncate hover:text-gold">{l.match}</Link>
+              <span className="text-text-2">{l.label}</span>
+              <button type="button" aria-label={`${l.label} kaldır`} onClick={() => basket.remove(l)} className="text-muted hover:text-text"><X className="size-4" aria-hidden /></button>
+            </li>
+          ))}
+        </ul>
+        {preview.isLoading && <Skeleton className="m-5 h-16" />}
+        {preview.isError && (
+          <div className="space-y-2 p-5">
+            <FormError error={preview.error} />
+            {preview.error instanceof ApiError && ["stale_prediction", "kickoff_passed", "abstained", "market_unavailable"].includes(preview.error.code) && (
+              <p className="text-[12px] text-muted">Bu seçimi kaldırıp maç sayfasından yeniden ekleyin.</p>
+            )}
+          </div>
+        )}
+      </Card>
+      {preview.data && (
+        <DraftCard key={key} d={preview.data} eyebrow={`Kendi kuponum · ${preview.data.legs.length} seçim`} title="Seçimlerimin birleşik olasılığı" />
+      )}
+    </div>
+  );
+}
+
 function History() {
   const q = useQuery({ queryKey: ["coupons"], queryFn: () => api<{ items: Saved[] }>("/v1/coupons") });
   return (
@@ -113,20 +218,13 @@ function History() {
 
 export default function CouponCenter() {
   const { data: me, isLoading } = useMe();
-  const qc = useQueryClient();
   const today = trToday();
   const [day, setDay] = useState(today);
   const [profile, setProfile] = useState<Draft["profile"]>("balanced");
   const [size, setSize] = useState(3);
   const [markets, setMarkets] = useState<string[]>([]);
-  const [saved, setSaved] = useState<number | null>(null);
-
   const generate = useMutation({
-    mutationFn: () => { setSaved(null); return post<Draft>("/v1/coupons/generate", { date: day, profile, size, ...(markets.length ? { markets } : {}) }); },
-  });
-  const save = useMutation({
-    mutationFn: (d: Draft) => post<Saved>("/v1/coupons", { profile: d.profile, params: d.params, legs: d.legs.map((l) => ({ prediction_id: l.prediction_id, market: l.market, pick: l.pick })) }),
-    onSuccess: (c) => { setSaved(c.id); qc.invalidateQueries({ queryKey: ["coupons"] }); },
+    mutationFn: () => post<Draft>("/v1/coupons/generate", { date: day, profile, size, ...(markets.length ? { markets } : {}) }),
   });
   const d = generate.data;
 
@@ -195,56 +293,13 @@ export default function CouponCenter() {
           </Card>
 
           <div className="space-y-6">
+            <Basket />
             {generate.isError ? (
               <Card><div className="p-5"><FormError error={generate.error} /></div></Card>
             ) : !d ? (
-              <Card><Empty title="Profil seçip kupon oluşturun" icon={<Dice5 className="size-5" aria-hidden />}>Model, seçtiğiniz olasılık bandına uyan ve güvenilirliği yeterli maçlardan en olası seçimleri önerir.</Empty></Card>
+              <Card><Empty title="Profil seçip kupon oluşturun" icon={<Dice5 className="size-5" aria-hidden />}>Model, seçtiğiniz olasılık bandına uyan ve güvenilirliği yeterli maçlardan en olası seçimleri önerir. Kendi seçimlerinizi maç sayfasındaki <strong className="text-text">+</strong> düğmeleriyle de ekleyebilirsiniz.</Empty></Card>
             ) : (
-              <Card className="rise">
-                <CardHeader eyebrow={`${PROFILES.find((p) => p.key === d.profile)?.label} · ${d.legs.length} maç`} title="Önerilen kupon" action={<span className="text-[11.5px] text-muted">{d.candidates_considered} uygun maç tarandı</span>} />
-                <ul className="mt-3 divide-y divide-line border-y border-line">
-                  {d.legs.map((l) => (
-                    <li key={l.prediction_id} className="grid grid-cols-[1fr_auto] items-center gap-3 px-5 py-3">
-                      <div className="min-w-0">
-                        <Link href={`/maclar/${l.fixture_id}`} className="block truncate text-[13.5px] font-medium hover:text-gold">{l.home} – {l.away}</Link>
-                        <div className="text-[11.5px] text-muted">{l.competition.name} · {fmtTime(l.kickoff_at)}</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[12.5px] text-text-2">{l.label}</span>
-                        <Badge tone={REL[l.reliability].tone}>{REL[l.reliability].label}</Badge>
-                        <span className="num w-12 text-right text-[14px] font-semibold">{pct(l.probability)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <div className="grid gap-5 p-5 sm:grid-cols-[auto_1fr]">
-                  <div className="rounded-ctl border border-line bg-bg-elevated px-5 py-4 text-center">
-                    <div className="eyebrow mb-1">Birleşik olasılık</div>
-                    <div className="num text-3xl font-semibold text-gold">{pct(d.joint_probability, 1)}</div>
-                    {d.one_in && <div className="mt-1 text-[11.5px] text-muted">≈ her {d.one_in.toFixed(1)} kupondan 1</div>}
-                  </div>
-                  <div className="space-y-2 text-[12.5px] leading-relaxed text-text-2">
-                    <p>{d.risk}</p>
-                    <p className="flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
-                      {d.monte_carlo.converged && <Badge tone="teal"><CheckCircle2 className="size-3" aria-hidden />Simülasyon doğruladı</Badge>}
-                      {d.monte_carlo.runs.map((r) => <span key={r.n} className="num">{r.n.toLocaleString("tr-TR")} sim: {pct(r.p, 1)} ± {pct(r.std_error, 2)}</span>)}
-                    </p>
-                    <p className="text-[11.5px] text-muted">{d.assumption}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-4">
-                  <Button onClick={() => save.mutate(d)} loading={save.isPending} disabled={saved !== null}>
-                    <Save className="size-4" aria-hidden />{saved ? "Kaydedildi" : "Kuponu kaydet"}
-                  </Button>
-                  <span className="text-[11.5px] text-muted">Kayıtlı kupon değiştirilemez; sonuçlar maçlar bitince işlenir.</span>
-                  <FormError error={save.error} />
-                </div>
-                {saved && <div className="border-t border-line px-5 py-4"><VirtualTicket couponId={saved} probability={d.joint_probability} /></div>}
-                <div className="space-y-1.5 border-t border-line bg-bg-elevated px-5 py-3 text-[11.5px] text-muted">
-                  <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.odds_note}</p>
-                  <p className="flex items-start gap-2"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />{d.disclaimer}</p>
-                </div>
-              </Card>
+              <DraftCard key={generate.submittedAt} d={d} eyebrow={`${PROFILES.find((p) => p.key === d.profile)?.label} · ${d.legs.length} maç`} title="Önerilen kupon" note={`${d.candidates_considered} uygun maç tarandı`} />
             )}
             <History />
           </div>

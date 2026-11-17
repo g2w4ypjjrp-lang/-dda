@@ -52,6 +52,13 @@ def test_train_registers_champion_then_challenger(
     assert set(first.components) and abs(sum(first.components.values()) - 1) < 1e-9
     assert "dixon_coles" in first.metrics["test"] and "ensemble" in first.metrics["test"]
     assert first.artifact["score_model"]["model"] in ("dixon_coles", "poisson")
+    # İY modeli ana modelle aynı test döneminde değerlendirilir; küçük sentetik ligde örneklem
+    # yetersiz olduğundan yayımlanmaz ve nedeni kayda geçer.
+    fh = first.metrics["first_half"]
+    assert fh["method"] == "binomial_thinning" and fh["coverage"] == 1.0
+    assert fh["split"]["home"] == pytest.approx(0.45, abs=0.06)
+    assert fh["available"] is False and any("örneklem" in r for r in fh["reasons"])
+    assert first.artifact["first_half"] == fh
     assert (
         sql.execute(
             "SELECT count(*) FROM ml_tuning_trials WHERE model_version_id=%s", (first.id,)
@@ -92,6 +99,8 @@ def test_predictions_written_immutable_and_deduplicated(
     assert "güven aralığı değildir" in p.uncertainty["label"]
     assert p.data_snapshot["history_matches"] > 300 and p.features["h_n"] >= 5
     assert p.reliability in ("high", "medium", "low") and p.model_agreement is not None
+    assert p.probabilities["first_half"]["available"] is False  # İY doğrulanmadı → yayımlanmaz
+    assert p.probabilities["first_half"]["reasons"]
 
     # Değiştirilemez: güncelleme ve silme reddedilir.
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
@@ -143,13 +152,18 @@ def test_settle_once(session: Session, sql: Any, league: dict[str, int]) -> None
     _predict(session, comp, now=NOW, thresholds=loose)
     sql.execute(
         "UPDATE football_fixtures SET status='finished', status_detail='FT', home_goals=2, away_goals=0,"
-        " ft_home=2, ft_away=0 WHERE external_id='90001'"
+        " ft_home=2, ft_away=0, ht_home=1, ht_away=0 WHERE external_id='90001'"
     )
     assert settle(session, now=NOW + timedelta(days=3)) == 1
     session.commit()
     assert settle(session, now=NOW + timedelta(days=4)) == 0
     session.commit()
-    row = sql.execute("SELECT outcome, brier, log_loss FROM ml_prediction_outcomes").fetchone()
+    row = sql.execute(
+        "SELECT outcome, brier, log_loss, ht_home, ht_away, ht_log_loss FROM ml_prediction_outcomes"
+    ).fetchone()
     assert row[0] == "home" and 0 <= row[1] <= 2 and row[2] > 0
+    assert (row[3], row[4]) == (1, 0) and row[
+        5
+    ] is None  # İY skoru kayıtlı; İY tahmini yayımlanmadı
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         sql.execute("UPDATE ml_prediction_outcomes SET outcome='away'")

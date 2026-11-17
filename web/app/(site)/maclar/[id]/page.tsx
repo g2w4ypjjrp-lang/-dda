@@ -10,6 +10,7 @@ import { PredictionPanel } from "@/components/prediction";
 import { Badge, Card, CardHeader, Empty, ErrorState, Skeleton, TeamCrest, cx } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { ago, fmtDate, fmtTime } from "@/lib/format";
+import { useMe } from "@/lib/hooks";
 import type { FixtureDetail, Prediction, TeamStats } from "@/lib/types";
 
 const STAT_ROWS: { key: keyof TeamStats; label: string; pct?: boolean; dec?: boolean }[] = [
@@ -114,13 +115,14 @@ function Lineups({ detail }: { detail: FixtureDetail }) {
 export default function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [tab, setTab] = useState<(typeof TABS)[number]>("AI Analizi");
+  const { data: me } = useMe();
   const detail = useQuery({
     queryKey: ["fixture", id],
     queryFn: () => api<FixtureDetail>(`/v1/football/fixtures/${id}`),
     refetchInterval: (q) => (q.state.data && ["live", "halftime"].includes(q.state.data.status) ? 30_000 : false),
   });
   const prediction = useQuery({
-    queryKey: ["prediction", id],
+    queryKey: ["prediction", id, me?.id ?? null],
     queryFn: async () => {
       try {
         return await api<Prediction>(`/v1/predictions/fixtures/${id}`);
@@ -197,7 +199,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
 
       <div className="mt-5" role="tabpanel">
         {tab === "AI Analizi" &&
-          (prediction.isLoading ? <Skeleton className="h-96" /> : <PredictionPanel prediction={prediction.data} homeName={d.home.name} awayName={d.away.name} />)}
+          (prediction.isLoading ? <Skeleton className="h-96" /> : <PredictionPanel prediction={prediction.data} homeName={d.home.name} awayName={d.away.name} canAdd={!!me} />)}
         {tab === "İstatistikler" && (
           <Card>
             <CardHeader eyebrow="Karşılaştırma" title="Takım istatistikleri" />

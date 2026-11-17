@@ -23,6 +23,7 @@ from mi_api.predictions.models import ModelVersion, Prediction, PredictionOutcom
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
+from mi_ml import halftime
 from mi_ml.backtest import TrainConfig, TrainingResult, summary, train
 from mi_ml.data import load_played, load_targets
 from mi_ml.metrics import CLASSES, outcome_label
@@ -45,6 +46,7 @@ def register(
     result: TrainingResult,
     competition_ids: Sequence[int],
     score_model: ScoreModel,
+    first_half: dict[str, Any] | None = None,
 ) -> ModelVersion:
     key = scope_key(competition_ids)
     has_champion = session.scalar(
@@ -63,7 +65,9 @@ def register(
         components=result.weights,
         excluded=result.excluded,
         temperature=result.temperature,
-        metrics=summary(result),
+        metrics={**summary(result), "first_half": _json(first_half)}
+        if first_half
+        else summary(result),
         feature_importance=result.feature_importance,
         data_fingerprint=result.data_fingerprint,
         n_rows=result.n_rows,
@@ -71,6 +75,7 @@ def register(
             {
                 "components": {n: m.to_json() for n, m in result.final_models.items()},
                 "score_model": score_model.to_json(),
+                "first_half": _json(first_half) if first_half else None,
             }
         ),
     )
@@ -97,7 +102,9 @@ def train_scope(session: Session, competition_ids: Sequence[int], cfg: TrainConf
     if score_model is None:
         # Skor piyasaları için skor modeli her zaman gerekir (1X2 ensemble'a girmese de).
         score_model = ScoreModel(fit_rho=True, xi=cfg.xi).fit([], played)
-    return register(session, result, competition_ids, score_model)
+    test_from = datetime.fromisoformat(result.periods["test"]["from"])
+    first_half = halftime.evaluate(played, test_from, xi=cfg.xi, window_days=cfg.window_days)
+    return register(session, result, competition_ids, score_model, first_half)
 
 
 def predict_scope(
@@ -179,6 +186,12 @@ def predict_scope(
     return written
 
 
+def _scores(probs: dict[str, float], label: int) -> tuple[float, float]:
+    p = np.array([probs[k] for k in CLASSES])
+    onehot = np.eye(3)[label]
+    return float(((p - onehot) ** 2).sum()), float(-np.log(max(p[label], 1e-15)))
+
+
 def settle(session: Session, *, now: datetime) -> int:
     stmt = (
         select(Prediction, Fixture)
@@ -203,10 +216,16 @@ def settle(session: Session, *, now: datetime) -> int:
         label = outcome_label(h, a)
         brier = ll = None
         if pred.status == "published" and pred.probabilities:
-            p = np.array([pred.probabilities["1x2"][k] for k in CLASSES])
-            onehot = np.eye(3)[label]
-            brier = float(((p - onehot) ** 2).sum())
-            ll = float(-np.log(max(p[label], 1e-15)))
+            brier, ll = _scores(pred.probabilities["1x2"], label)
+        # İY skoru yalnızca 90' skoruyla tutarlıysa yazılır; İY olasılık skoru yalnızca İY
+        # piyasaları yayımlanmışsa hesaplanır.
+        hh, ha = fx.ht_home, fx.ht_away
+        if hh is None or ha is None or hh > h or ha > a:
+            hh = ha = None
+        ht_brier = ht_ll = None
+        fh = (pred.probabilities or {}).get("first_half") or {}
+        if hh is not None and ha is not None and pred.status == "published" and fh.get("available"):
+            ht_brier, ht_ll = _scores(fh["1x2"], outcome_label(hh, ha))
         session.add(
             PredictionOutcome(
                 prediction_id=pred.id,
@@ -216,6 +235,10 @@ def settle(session: Session, *, now: datetime) -> int:
                 outcome=CLASSES[label],
                 brier=brier,
                 log_loss=ll,
+                ht_home=hh,
+                ht_away=ha,
+                ht_brier=ht_brier,
+                ht_log_loss=ht_ll,
             )
         )
         count += 1

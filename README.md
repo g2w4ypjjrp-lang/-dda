@@ -23,6 +23,7 @@ kazanç garantisi vermez.
 6. [Faz 4 raporu — kupon motoru](docs/06-faz4-raporu.md)
 7. [Faz 5 raporu — sanal portföy](docs/07-faz5-raporu.md)
 8. [Faz 6 raporu — paketler, ödeme, lisans](docs/08-faz6-raporu.md)
+9. [İlk yarı modeli ve kupona ekle](docs/09-ilk-yari-raporu.md)
 
 ## Hızlı başlangıç
 

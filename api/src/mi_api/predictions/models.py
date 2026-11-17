@@ -83,3 +83,7 @@ class PredictionOutcome(Base):
     outcome: Mapped[str] = mapped_column(String(8))
     brier: Mapped[float | None] = mapped_column(Float)
     log_loss: Mapped[float | None] = mapped_column(Float)
+    ht_home: Mapped[int | None] = mapped_column(Integer)
+    ht_away: Mapped[int | None] = mapped_column(Integer)
+    ht_brier: Mapped[float | None] = mapped_column(Float)
+    ht_log_loss: Mapped[float | None] = mapped_column(Float)

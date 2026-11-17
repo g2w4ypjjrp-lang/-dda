@@ -26,6 +26,15 @@ def _xg(value: object) -> float | None:
     return float(value) if value is not None else None  # type: ignore[arg-type]
 
 
+def _ht_ok(fx: Fixture, home_goals: int, away_goals: int) -> bool:
+    return (
+        fx.ht_home is not None
+        and fx.ht_away is not None
+        and fx.ht_home <= home_goals
+        and fx.ht_away <= away_goals
+    )
+
+
 def load_played(
     session: Session, competition_ids: Sequence[int], *, before: datetime | None = None
 ) -> list[Match]:
@@ -64,6 +73,9 @@ def load_played(
                 competition_id=int(comp_id),
                 xg_home=_xg(xg_h),
                 xg_away=_xg(xg_a),
+                # İY skoru yalnızca 90' skoruyla tutarlıysa kullanılır (İY ≤ MS).
+                ht_home=fx.ht_home if _ht_ok(fx, home_goals, away_goals) else None,
+                ht_away=fx.ht_away if _ht_ok(fx, home_goals, away_goals) else None,
             )
         )
     return out

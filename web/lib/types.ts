@@ -66,7 +66,22 @@ export interface Markets {
   total_goals?: Record<string, number>;
   correct_score?: { home: number; away: number; p: number }[];
   expected_goals?: { home: number; away: number };
+  first_half?: FirstHalf;
 }
+
+export type FirstHalf =
+  | {
+      available: true;
+      split: { home: number; away: number };
+      "1x2": OneXTwo;
+      over_under: Record<string, { over: number; under: number }>;
+      btts: { yes: number; no: number };
+      correct_score: { home: number; away: number; p: number }[];
+      expected_goals: { home: number; away: number };
+      ht_ft: Record<string, number>;
+      test?: { n: number | null; log_loss: number | null; baseline_log_loss: number | null; ece: number | null };
+    }
+  | { available: false; reasons: string[] };
 
 export interface Lock { key: string; label: string; required_plan: "PRO" | "ELITE" }
 
@@ -102,6 +117,7 @@ export interface Performance {
   accuracy?: number;
   uniform_log_loss?: number;
   reliability?: { bin_low: number; bin_high: number; mean_confidence: number; observed_rate: number; count: number }[];
+  first_half?: { settled: number; brier: number; log_loss: number } | null;
 }
 
 export interface Me {

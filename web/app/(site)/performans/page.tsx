@@ -47,6 +47,11 @@ export default function PerformancePage() {
               <Stat label="Brier" value={num(d.brier, 3)} hint="tekdüze ≈ 0.667" />
               <Stat label="Log loss" value={num(d.log_loss, 3)} hint={`tekdüze ${num(d.uniform_log_loss, 3)}`} />
               <Stat label="İsabet" value={pct(d.accuracy)} hint="tek başına başarı ölçüsü değildir" />
+              <Stat
+                label="İlk yarı log loss"
+                value={d.first_half ? num(d.first_half.log_loss, 3) : "Veri yok"}
+                hint={d.first_half ? `${d.first_half.settled} sonuçlanan İY tahmini` : "Yayımlanmış ve sonuçlanmış İY tahmini yok"}
+              />
             </div>
           </Card>
           <Card>

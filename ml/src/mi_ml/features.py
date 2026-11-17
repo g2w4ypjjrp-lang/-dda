@@ -37,6 +37,8 @@ class Match(MatchRecord):
     competition_id: int = 0
     xg_home: float | None = None
     xg_away: float | None = None
+    ht_home: int | None = None  # ilk yarı skoru (sağlayıcı verdiyse)
+    ht_away: int | None = None
 
     @property
     def played(self) -> bool:

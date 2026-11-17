@@ -58,6 +58,7 @@ def _version_brief(v: ModelVersion) -> dict[str, Any]:
         "temperature": v.temperature,
         "n_rows": v.n_rows,
         "test": {k: test.get(k) for k in ("n", "log_loss", "brier", "ece", "accuracy")},
+        "first_half": (v.metrics or {}).get("first_half"),
         "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
     }
 
@@ -91,6 +92,11 @@ def prediction_view(
             "result": outcome.outcome,
             "brier": outcome.brier,
             "log_loss": outcome.log_loss,
+            "halftime": (
+                {"home_goals": outcome.ht_home, "away_goals": outcome.ht_away}
+                if outcome.ht_home is not None
+                else None
+            ),
             "settled_at": outcome.settled_at.isoformat(),
         }
         if outcome
@@ -239,8 +245,19 @@ def create_predictions_router() -> APIRouter:
             ([float(p["1x2"][k]) for k in CLASSES], CLASSES.index(o.outcome)) for p, o in published
         ]
         n = len(pairs)
+        ht = [o for _, o in published if o.ht_log_loss is not None]
+        first_half = (
+            {
+                "settled": len(ht),
+                "brier": sum(o.ht_brier or 0.0 for o in ht) / len(ht),
+                "log_loss": sum(o.ht_log_loss or 0.0 for o in ht) / len(ht),
+            }
+            if ht
+            else None
+        )
         return {
             "data_status": "ok",
+            "first_half": first_half,
             "window_days": days,
             "settled_published": n,
             "settled_abstained": abstained,

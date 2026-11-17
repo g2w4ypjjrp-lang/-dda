@@ -56,10 +56,15 @@ def league(
     return matches, params
 
 
+HT_SHARE = (0.45, 0.42)  # sentetik İY gol payı (ev, deplasman)
+
+
 def league_matches(n_teams: int = 12, seasons: int = 4, seed: int = 11) -> list[Match]:
-    """Model hattı testleri için: gerçekçi aralıklı (2 günde bir maç) sentetik lig, sentetik xG ile."""
+    """Model hattı testleri için: gerçekçi aralıklı (2 günde bir maç) sentetik lig, sentetik xG ve
+    İY skoruyla (her gol bağımsız olarak ``HT_SHARE`` olasılıkla ilk yarıda)."""
     records, _ = league(n_teams, seasons, seed=seed, spacing_hours=48)
     rng = np.random.default_rng(seed + 1)
+    ht = np.random.default_rng(seed + 2)
     return [
         Match(
             r.kickoff_at,
@@ -71,6 +76,8 @@ def league_matches(n_teams: int = 12, seasons: int = 4, seed: int = 11) -> list[
             competition_id=1,
             xg_home=round(max(0.05, r.home_goals + rng.normal(0, 0.6)), 2),
             xg_away=round(max(0.05, r.away_goals + rng.normal(0, 0.6)), 2),
+            ht_home=int(ht.binomial(r.home_goals, HT_SHARE[0])),
+            ht_away=int(ht.binomial(r.away_goals, HT_SHARE[1])),
         )
         for i, r in enumerate(records)
     ]

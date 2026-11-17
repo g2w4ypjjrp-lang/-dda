@@ -51,14 +51,17 @@ Windows'ta PowerShell ortam değişkeni örneği: `$env:MI_DATABASE_URL = "postg
 ## Sıradaki iş
 
 Faz 4 (kupon), Faz 5 (sanal portföy) ve Faz 6 (paketler, ödeme, lisans) tamamlandı:
-`docs/06-faz4-raporu.md`, `docs/07-faz5-raporu.md`, `docs/08-faz6-raporu.md`.
+`docs/06-faz4-raporu.md`, `docs/07-faz5-raporu.md`, `docs/08-faz6-raporu.md`; ilk yarı modeli ve
+"kupona ekle": `docs/09-ilk-yari-raporu.md` (İY piyasaları yalnızca `halftime.evaluate` kapısından
+geçerse yayımlanır; demo verisinde geçmiyor — eşiği demo için gevşetmeyin).
 Paket hakları `mi_api.billing.plans` ile **backend'de** kontrol edilir; yeni bir ücretli özellik
 eklerken `plan_entitlements` anahtarı + `ENTITLEMENTS` tipi + `LOCK_LABELS` + geçişte tohum değeri ekleyin.
 Testlerde ücretli kullanıcı: `conftest.member(...)`; E2E'de `e2e/support.ts` → `grantPlan`.
 Canlı ödeme (M-G5) kullanıcı onayı olmadan açılmaz.
 
 Sıradakiler:
-1. İlk yarı skor modeli ve İY piyasaları; maç sayfasından "kupona ekle".
-2. Faz 8 tasarım sistemleri + Design Studio; Faz 9 yönetim modülleri.
+1. Faz 8 tasarım sistemleri + Design Studio.
+2. Faz 9 yönetim modülleri (Data Explorer, Action Center, Ctrl+K, sipariş inceleme akışı).
+3. Faz 7 kalanları: PWA, bildirimler, widget'lar.
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

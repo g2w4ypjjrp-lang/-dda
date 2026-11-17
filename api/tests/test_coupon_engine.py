@@ -124,3 +124,75 @@ def test_profiles_respect_probability_bands_and_reliability() -> None:
 def test_risk_text() -> None:
     text = risk_text(0.25, 3, "medium")
     assert "%25.0" in text and "4.0" in text and "orta" in text and "kesin sonuç değildir" in text
+
+
+# --- İlk yarı ------------------------------------------------------------------------------------
+
+
+def ht_probs(lam: float, mu: float) -> dict[str, object]:
+    from coupon_support import first_half
+
+    return {**probs(lam, mu), "first_half": first_half(lam, mu)}
+
+
+def test_first_half_joint_matches_independent_halves() -> None:
+    """Motorun binom inceltmesi, iki bağımsız yarı Poisson'u türetmesiyle aynı sonucu vermeli."""
+    from coupon_support import pois
+
+    lam, mu, r = 1.7, 1.1, (0.45, 0.42)
+    p = ht_probs(lam, mu)
+    fh = p["first_half"]
+    assert isinstance(fh, dict)
+    stored = lambda c, k: fixture_joint([Leg(1, market(c, k), p)])  # noqa: E731
+    m = p["score_matrix"]
+    # Tek İY seçimi kayıttan okunur; aynı değeri matristen tam hesaplayınca da bulmalıyız.
+    for code, pick in (("ht_1x2", "home"), ("ht_total", "over_0.5"), ("ht_ft", "X/1")):
+        exact = fixture_joint([Leg(1, market(code, pick), p), Leg(1, market(code, pick), p)])
+        assert exact == pytest.approx(stored(code, pick), abs=2e-4)
+    # Bağımsız türetme 10 golde kesildiği için toplam 1'den ~2e-6 eksik olabilir.
+    assert sum(stored("ht_ft", f"{a}/{b}") for a in "1X2" for b in "1X2") == pytest.approx(
+        1, abs=1e-5
+    )
+
+    # İY 1 ve MS 2.5 Üst birlikte: bağımsız yarılarla elle (iki yarının toplamı üzerinden).
+    manual = 0.0
+    for x in range(8):
+        for y in range(x):
+            for u in range(10):
+                for v in range(10):
+                    if x + u + y + v > 2.5:
+                        manual += (
+                            pois(r[0] * lam, x) * pois(r[1] * mu, y)
+                            * pois((1 - r[0]) * lam, u) * pois((1 - r[1]) * mu, v)
+                        )  # fmt: skip
+    joint = fixture_joint(
+        [Leg(1, market("ht_1x2", "home"), p), Leg(1, market("total", "over_2.5"), p)]
+    )
+    assert joint == pytest.approx(manual, abs=2e-4)
+    assert joint != pytest.approx(stored("ht_1x2", "home") * stored("total", "over_2.5"), abs=5e-3)
+    # Çelişki: İY/MS 1/1 ve MS 2 aynı anda olamaz.
+    assert (
+        fixture_joint([Leg(1, market("ht_ft", "1/1"), p), Leg(1, market("1x2", "away"), p)]) == 0.0
+    )
+    assert m is not None
+
+
+def test_first_half_monte_carlo_and_unavailable() -> None:
+    a, b = ht_probs(1.5, 1.2), ht_probs(1.1, 1.4)
+    legs = [
+        Leg(1, market("ht_total", "over_0.5"), a),
+        Leg(1, market("btts", "yes"), a),
+        Leg(2, market("ht_ft", "X/2"), b),
+    ]
+    ev = evaluate(legs)
+    assert ev.converged, ev.as_dict()
+    # İY modeli yayımlanmamış tahmin: İY seçimi reddedilir, MS seçimleri çalışır.
+    closed = {**probs(1.2, 1.0), "first_half": {"available": False, "reasons": ["x"]}}
+    with pytest.raises(CouponError) as err:
+        fixture_joint([Leg(3, market("ht_1x2", "draw"), closed)])
+    assert err.value.code == "market_unavailable"
+    with pytest.raises(CouponError):
+        fixture_joint(
+            [Leg(3, market("ht_1x2", "draw"), closed), Leg(3, market("1x2", "home"), closed)]
+        )
+    assert fixture_joint([Leg(3, market("1x2", "home"), closed)]) > 0

@@ -210,7 +210,21 @@ async def settle_coupons(db: AsyncSession, now: datetime) -> dict[str, int]:
                 h, a = fx.home_goals, fx.away_goals
             else:
                 continue  # 90' skoru bilinmiyor; beklemede kalır
-            leg.result = "won" if market(leg.market, leg.pick).predicate(h, a) else "lost"
+            m = market(leg.market, leg.pick)
+            if m.half:
+                x, y = fx.ht_home, fx.ht_away
+                if x is None or y is None or x > h or y > a:
+                    # İY skoru bilinmiyor/tutarsız: seçim beklemede kalır; maç 3 günden eskiyse
+                    # sağlayıcının veriyi düzeltmesi beklenmez, seçim geçersiz sayılır.
+                    if fx.kickoff_at > now - timedelta(days=3):
+                        continue
+                    leg.result = "void"
+                    legs_settled += 1
+                    touched.add(leg.coupon_id)
+                    continue
+            else:
+                x = y = -1
+            leg.result = "won" if m.predicate(h, a, x, y) else "lost"
         legs_settled += 1
         touched.add(leg.coupon_id)
     await db.flush()
@@ -283,6 +297,58 @@ async def coupon_view(db: AsyncSession, coupon: Coupon) -> dict[str, Any]:
     }
 
 
+async def _resolve(
+    db: AsyncSession, body: SaveBody, now: datetime
+) -> tuple[dict[str, Any], list[tuple[Candidate, str, str, float]]]:
+    """Seçimleri sunucuda tahmin kayıtlarından çözer ve kuponu değerlendirir (kaydetmez)."""
+    ids = sorted({leg.prediction_id for leg in body.legs})
+    rows = (await db.execute(_candidate_query().where(Prediction.id.in_(ids)))).all()
+    by_id = {p.id: (p, fx, h, a, c) for p, fx, h, a, c in rows}
+    legs: list[tuple[Candidate, str, str, float]] = []
+    seen: set[tuple[int, str, str]] = set()
+    for leg_in in body.legs:
+        row = by_id.get(leg_in.prediction_id)
+        if row is None:
+            raise ApiError(
+                422,
+                "stale_prediction",
+                "Tahmin bulunamadı veya maçın daha yeni bir tahmini var; kuponu yeniden oluşturun",
+            )
+        p, fx, h, a, c = row
+        if p.status != "published" or not p.probabilities:
+            raise ApiError(422, "abstained", "Model bu maç için tahmin yayımlamadı")
+        if fx.status not in ("scheduled", "tbd") or fx.kickoff_at <= now + KICKOFF_MARGIN:
+            raise ApiError(
+                422, "kickoff_passed", f"{h.name} – {a.name} başlamış veya başlamak üzere"
+            )
+        if (p.id, leg_in.market, leg_in.pick) in seen:
+            raise ApiError(422, "duplicate_leg", "Aynı seçim iki kez eklenemez")
+        seen.add((p.id, leg_in.market, leg_in.pick))
+        try:
+            m = market(leg_in.market, leg_in.pick)
+            prob = fixture_joint([Leg(fx.id, m, p.probabilities)])
+        except CouponError as exc:
+            raise ApiError(422, exc.code, str(exc)) from exc
+        cand = Candidate(p.id, fx.id, p.probabilities, p.reliability, _info(fx, h, a, c))
+        legs.append((cand, m.code, m.pick, prob))
+    try:
+        draft = _draft(legs, body.profile)
+    except CouponError as exc:
+        raise ApiError(422, exc.code, str(exc)) from exc
+    return draft, legs
+
+
+def _check_plan(access: Any, body: SaveBody) -> None:
+    if not access.allows("coupons.enabled"):
+        raise plan_required("coupons.enabled")
+    if len({leg.prediction_id for leg in body.legs}) > int(access.get("coupons.max_legs", 0)):
+        raise ApiError(
+            403,
+            "plan_limit",
+            f"Paketinizde kupon en fazla {access.get('coupons.max_legs')} maç olabilir",
+        )
+
+
 def create_coupons_router() -> APIRouter:
     router = APIRouter(tags=["coupons"])
 
@@ -337,56 +403,25 @@ def create_coupons_router() -> APIRouter:
         draft["candidates_considered"] = len(candidates)
         return draft
 
+    @router.post("/v1/coupons/preview")
+    async def preview(
+        body: SaveBody, user: UserDep, db: DbDep, services: ServicesDep
+    ) -> dict[str, Any]:
+        """Kullanıcının seçtiği seçimlerle (maç sayfasından "kupona ekle") kupon önizlemesi:
+        birleşik olasılık ve Monte Carlo doğrulaması. Kaydetmez."""
+        await enforce_limit(services, f"coupon_preview:user:{user.user.id}", 120, 600)
+        _check_plan(await access_for(db, user.user.id, services.clock()), body)
+        draft, _ = await _resolve(db, body, services.clock())
+        return draft
+
     @router.post("/v1/coupons", status_code=201)
     async def save(
         body: SaveBody, user: UserDep, db: DbDep, services: ServicesDep, meta: MetaDep
     ) -> dict[str, Any]:
         await enforce_limit(services, f"coupon_save:user:{user.user.id}", 30, 600)
-        access = await access_for(db, user.user.id, services.clock())
-        if not access.allows("coupons.enabled"):
-            raise plan_required("coupons.enabled")
-        if len({leg.prediction_id for leg in body.legs}) > int(access.get("coupons.max_legs", 0)):
-            raise ApiError(
-                403,
-                "plan_limit",
-                f"Paketinizde kupon en fazla {access.get('coupons.max_legs')} maç olabilir",
-            )
+        _check_plan(await access_for(db, user.user.id, services.clock()), body)
         now = services.clock()
-        ids = sorted({leg.prediction_id for leg in body.legs})
-        rows = (await db.execute(_candidate_query().where(Prediction.id.in_(ids)))).all()
-        by_id = {p.id: (p, fx, h, a, c) for p, fx, h, a, c in rows}
-        legs: list[tuple[Candidate, str, str, float]] = []
-        seen: set[tuple[int, str, str]] = set()
-        for leg_in in body.legs:
-            row = by_id.get(leg_in.prediction_id)
-            if row is None:
-                raise ApiError(
-                    422,
-                    "stale_prediction",
-                    "Tahmin bulunamadı veya maçın daha yeni "
-                    "bir tahmini var; kuponu yeniden oluşturun",
-                )
-            p, fx, h, a, c = row
-            if p.status != "published" or not p.probabilities:
-                raise ApiError(422, "abstained", "Model bu maç için tahmin yayımlamadı")
-            if fx.status not in ("scheduled", "tbd") or fx.kickoff_at <= now + KICKOFF_MARGIN:
-                raise ApiError(
-                    422, "kickoff_passed", f"{h.name} – {a.name} başlamış veya başlamak üzere"
-                )
-            if (p.id, leg_in.market, leg_in.pick) in seen:
-                raise ApiError(422, "duplicate_leg", "Aynı seçim iki kez eklenemez")
-            seen.add((p.id, leg_in.market, leg_in.pick))
-            try:
-                m = market(leg_in.market, leg_in.pick)
-                prob = fixture_joint([Leg(fx.id, m, p.probabilities)])
-            except CouponError as exc:
-                raise ApiError(422, exc.code, str(exc)) from exc
-            cand = Candidate(p.id, fx.id, p.probabilities, p.reliability, _info(fx, h, a, c))
-            legs.append((cand, m.code, m.pick, prob))
-        try:
-            draft = _draft(legs, body.profile)
-        except CouponError as exc:
-            raise ApiError(422, exc.code, str(exc)) from exc
+        draft, legs = await _resolve(db, body, now)
         coupon = Coupon(
             user_id=user.user.id,
             created_at=now,

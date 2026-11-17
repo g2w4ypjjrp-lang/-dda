@@ -42,6 +42,43 @@ def markets(lam: float, mu: float) -> dict[str, Any]:
     }
 
 
+def pois(lam: float, k: int) -> float:
+    return math.exp(-lam) * lam**k / math.factorial(k)
+
+
+def first_half(lam: float, mu: float, r: tuple[float, float] = (0.45, 0.42)) -> dict[str, Any]:
+    """Bağımsız türetme: Poisson golün inceltilmesi = iki bağımsız yarı Poisson'u. İY ~ Pois(rλ),
+    ikinci yarı ~ Pois((1−r)λ). Motorun binom inceltme hesabını bununla karşılaştırırız."""
+    g = 10
+    ht = [[pois(r[0] * lam, x) * pois(r[1] * mu, y) for y in range(g + 1)] for x in range(g + 1)]
+    sh = [
+        [pois((1 - r[0]) * lam, u) * pois((1 - r[1]) * mu, v) for v in range(g + 1)]
+        for u in range(g + 1)
+    ]
+    res = lambda x, y: "1" if x > y else "X" if x == y else "2"  # noqa: E731
+    htft: dict[str, float] = {}
+    for x in range(g + 1):
+        for y in range(g + 1):
+            for u in range(g + 1 - x):
+                for v in range(g + 1 - y):
+                    key = f"{res(x, y)}/{res(x + u, y + v)}"
+                    htft[key] = htft.get(key, 0.0) + ht[x][y] * sh[u][v]
+    home = sum(ht[x][y] for x in range(g + 1) for y in range(g + 1) if x > y)
+    draw = sum(ht[x][x] for x in range(g + 1))
+    zero = ht[0][0]
+    one = zero + ht[1][0] + ht[0][1]
+    return {
+        "available": True,
+        "split": {"home": r[0], "away": r[1]},
+        "1x2": {"home": home, "draw": draw, "away": 1 - home - draw},
+        "over_under": {
+            "0.5": {"over": 1 - zero, "under": zero},
+            "1.5": {"over": 1 - one, "under": one},
+        },
+        "ht_ft": htft,
+    }
+
+
 def seed(sql: psycopg.Connection[Any], clock: Clock) -> dict[str, Any]:
     clock.now = NOW
     comp = sql.execute(
@@ -81,7 +118,14 @@ def seed(sql: psycopg.Connection[Any], clock: Clock) -> dict[str, Any]:
                 version,
                 NOW - timedelta(hours=1),
                 kickoff,
-                json.dumps(markets(lam, mu)),
+                json.dumps(
+                    {**markets(lam, mu), "first_half": first_half(lam, mu)}
+                    if k != 3
+                    else {
+                        **markets(lam, mu),
+                        "first_half": {"available": False, "reasons": ["test"]},
+                    }
+                ),
                 "b" * 64,
             ),
         ).fetchone()[0]

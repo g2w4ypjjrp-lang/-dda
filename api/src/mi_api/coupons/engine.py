@@ -5,6 +5,9 @@
 * Aynı maçtaki seçimler bağımsız **değildir** (ör. "1" ve "2.5 Üst"). Bu yüzden çarpılmaz; tahmin
   kaydındaki ortak skor dağılımından (``score_matrix``, 0–10 gol) tüm seçimlerin **birlikte**
   gerçekleştiği skorların olasılıkları toplanır. Bu kesin değerdir.
+* İlk yarı (İY) seçimleri için aynı dağılım, tahmin kaydındaki İY gol payıyla (``first_half.split``)
+  binom inceltmeyle İY × MS ortak dağılımına genişletilir; "İY 1 + MS 2.5 Üst" gibi seçimler de
+  kesin hesaplanır. İY modeli testte geçmediyse İY seçimi yapılamaz.
 * Farklı maçlar, model koşulunda birbirinden bağımsızdır (her maçın skor dağılımı ayrı tahmin
   edilir). Maç başına birleşik olasılıklar çarpılır. Bu varsayım raporda açıkça yazılır.
 * Monte Carlo (sabit tohum, 10.000 ve 50.000 simülasyon) her maçın skorunu kendi dağılımından
@@ -25,7 +28,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Predicate = Callable[[int, int], bool]
+# Seçim koşulu: (MS ev, MS deplasman, İY ev, İY deplasman) golleri.
+Predicate = Callable[[int, int, int, int], bool]
 Profile = Literal["low", "balanced", "high"]
 SEED = 42
 MC_SIZES = (10_000, 50_000)
@@ -37,25 +41,54 @@ class Market:
     pick: str
     label: str
     predicate: Predicate
+    half: bool = False  # İY skoruna bağlı mı?
 
 
 def _ou(line: float, over: bool) -> Predicate:
-    return (lambda h, a: h + a > line) if over else (lambda h, a: h + a < line)
+    return (lambda h, a, *_: h + a > line) if over else (lambda h, a, *_: h + a < line)
+
+
+def _res(x: int, y: int) -> str:
+    return "1" if x > y else "X" if x == y else "2"
 
 
 _DEFS: list[Market] = [
-    Market("1x2", "home", "Maç sonucu: 1", lambda h, a: h > a),
-    Market("1x2", "draw", "Maç sonucu: X", lambda h, a: h == a),
-    Market("1x2", "away", "Maç sonucu: 2", lambda h, a: h < a),
-    Market("double_chance", "1X", "Çifte şans: 1X", lambda h, a: h >= a),
-    Market("double_chance", "12", "Çifte şans: 12", lambda h, a: h != a),
-    Market("double_chance", "X2", "Çifte şans: X2", lambda h, a: h <= a),
-    Market("btts", "yes", "Karşılıklı gol: Var", lambda h, a: h > 0 and a > 0),
-    Market("btts", "no", "Karşılıklı gol: Yok", lambda h, a: h == 0 or a == 0),
+    Market("1x2", "home", "Maç sonucu: 1", lambda h, a, *_: h > a),
+    Market("1x2", "draw", "Maç sonucu: X", lambda h, a, *_: h == a),
+    Market("1x2", "away", "Maç sonucu: 2", lambda h, a, *_: h < a),
+    Market("double_chance", "1X", "Çifte şans: 1X", lambda h, a, *_: h >= a),
+    Market("double_chance", "12", "Çifte şans: 12", lambda h, a, *_: h != a),
+    Market("double_chance", "X2", "Çifte şans: X2", lambda h, a, *_: h <= a),
+    Market("btts", "yes", "Karşılıklı gol: Var", lambda h, a, *_: h > 0 and a > 0),
+    Market("btts", "no", "Karşılıklı gol: Yok", lambda h, a, *_: h == 0 or a == 0),
 ]
 for _line in (1.5, 2.5, 3.5):
     _DEFS.append(Market("total", f"over_{_line}", f"{_line} Üst", _ou(_line, True)))
     _DEFS.append(Market("total", f"under_{_line}", f"{_line} Alt", _ou(_line, False)))
+# İlk yarı (İY) piyasaları: yalnızca İY modeli testte geçtiyse tahmin kaydında bulunur.
+_DEFS += [
+    Market("ht_1x2", "home", "İlk yarı: 1", lambda h, a, x, y: x > y, half=True),
+    Market("ht_1x2", "draw", "İlk yarı: X", lambda h, a, x, y: x == y, half=True),
+    Market("ht_1x2", "away", "İlk yarı: 2", lambda h, a, x, y: x < y, half=True),
+]
+
+
+def _ht_ou(line: float, over: bool) -> Predicate:
+    return (lambda h, a, x, y: x + y > line) if over else (lambda h, a, x, y: x + y < line)
+
+
+def _htft(ht: str, ft: str) -> Predicate:
+    return lambda h, a, x, y: _res(x, y) == ht and _res(h, a) == ft
+
+
+for _line in (0.5, 1.5):
+    _DEFS.append(Market("ht_total", f"over_{_line}", f"İY {_line} Üst", _ht_ou(_line, True), True))
+    _DEFS.append(
+        Market("ht_total", f"under_{_line}", f"İY {_line} Alt", _ht_ou(_line, False), True)
+    )
+for _a in ("1", "X", "2"):
+    for _b in ("1", "X", "2"):
+        _DEFS.append(Market("ht_ft", f"{_a}/{_b}", f"İY/MS: {_a}/{_b}", _htft(_a, _b), True))
 MARKETS: dict[tuple[str, str], Market] = {(m.code, m.pick): m for m in _DEFS}
 MARKET_CODES = frozenset(m.code for m in _DEFS)
 
@@ -73,8 +106,27 @@ def market(code: str, pick: str) -> Market:
     return m
 
 
+_HT_KEY = {"home": "home", "draw": "draw", "away": "away"}
+
+
+def first_half(probabilities: dict[str, Any]) -> dict[str, Any] | None:
+    fh = probabilities.get("first_half")
+    return fh if isinstance(fh, dict) and fh.get("available") and fh.get("split") else None
+
+
 def stored_probability(probabilities: dict[str, Any], code: str, pick: str) -> float | None:
-    """Matris yoksa (eski kayıt) tek seçim olasılığı yayımlanmış piyasalardan okunur."""
+    """Tek seçim olasılığı tahmin kaydındaki yayımlanmış piyasalardan okunur."""
+    if code.startswith("ht_"):
+        fh = first_half(probabilities)
+        if fh is None:
+            return None
+        if code == "ht_1x2":
+            return float(fh["1x2"][pick])
+        if code == "ht_ft":
+            return float(fh["ht_ft"][pick])
+        side, line = pick.split("_")
+        entry = fh.get("over_under", {}).get(line)
+        return float(entry[side]) if entry else None
     if code == "1x2":
         return float(probabilities["1x2"][pick])
     if code == "double_chance":
@@ -101,31 +153,72 @@ class Leg:
         m = self.probabilities.get("score_matrix")
         return m if isinstance(m, list) and m else None
 
+    @property
+    def split(self) -> tuple[float, float] | None:
+        fh = first_half(self.probabilities)
+        return (float(fh["split"]["home"]), float(fh["split"]["away"])) if fh else None
 
-def _matrix_joint(matrix: list[list[float]], predicates: Sequence[Predicate]) -> float:
-    total = 0.0
+
+def _binom(n: int, r: float) -> list[float]:
+    return [math.comb(n, k) * r**k * (1 - r) ** (n - k) for k in range(n + 1)]
+
+
+def _cells(
+    matrix: list[list[float]], split: tuple[float, float] | None
+) -> list[tuple[int, int, int, int, float]]:
+    """Ortak dağılımın hücreleri. İY gerekiyorsa her MS skoru binom inceltmeyle İY skorlarına
+    ayrılır (ML ``halftime`` modülüyle aynı model):
+    P = M[h][a] · Binom(x; h, r_ev) · Binom(y; a, r_dep)."""
+    total = sum(map(sum, matrix))
+    out = []
     for h, row in enumerate(matrix):
         for a, p in enumerate(row):
-            if all(pred(h, a) for pred in predicates):
-                total += p
-    return total / sum(map(sum, matrix))
+            if p <= 0:
+                continue
+            if split is None:
+                out.append((h, a, -1, -1, p / total))
+                continue
+            bh, ba = _binom(h, split[0]), _binom(a, split[1])
+            for x, px in enumerate(bh):
+                for y, py in enumerate(ba):
+                    out.append((h, a, x, y, p * px * py / total))
+    return out
+
+
+def _group_split(legs: Sequence[Leg]) -> tuple[float, float] | None:
+    if not any(leg.market.half for leg in legs):
+        return None
+    split = legs[0].split
+    if split is None:
+        raise CouponError("market_unavailable", "Bu maç için ilk yarı tahmini yayımlanmadı")
+    return split
 
 
 def fixture_joint(legs: Sequence[Leg]) -> float:
     """Aynı maçtaki seçimlerin birlikte gerçekleşme olasılığı (kesin)."""
+    if len(legs) == 1 and legs[0].market.half:
+        # Tek İY seçimi: tahmin kaydında yayımlanan değer (aynı dağılımdan hesaplanmıştır).
+        p = stored_probability(legs[0].probabilities, legs[0].market.code, legs[0].market.pick)
+        if p is None:
+            raise CouponError("market_unavailable", "Bu maç için ilk yarı tahmini yayımlanmadı")
+        return p
     matrix = legs[0].matrix
-    if matrix is not None:
-        return _matrix_joint(matrix, [leg.market.predicate for leg in legs])
-    if len(legs) > 1:
-        raise CouponError(
-            "joint_unavailable",
-            "Bu maçın tahmin kaydında ortak skor dağılımı "
-            "yok; aynı maçtan birden fazla seçim yapılamaz",
-        )
-    p = stored_probability(legs[0].probabilities, legs[0].market.code, legs[0].market.pick)
-    if p is None:
-        raise CouponError("market_unavailable", "Bu piyasa için olasılık yok")
-    return p
+    if matrix is None:
+        if len(legs) > 1:
+            raise CouponError(
+                "joint_unavailable",
+                "Bu maçın tahmin kaydında ortak skor dağılımı "
+                "yok; aynı maçtan birden fazla seçim yapılamaz",
+            )
+        p = stored_probability(legs[0].probabilities, legs[0].market.code, legs[0].market.pick)
+        if p is None:
+            raise CouponError("market_unavailable", "Bu piyasa için olasılık yok")
+        return p
+    split = _group_split(legs)
+    preds = [leg.market.predicate for leg in legs]
+    return sum(
+        c[4] for c in _cells(matrix, split) if all(pr(c[0], c[1], c[2], c[3]) for pr in preds)
+    )
 
 
 def group(legs: Sequence[Leg]) -> dict[int, list[Leg]]:
@@ -150,6 +243,8 @@ class SimResult:
 
 
 def simulate(legs: Sequence[Leg], n: int, seed: int = SEED) -> SimResult:
+    """Her maçın MS skoru kendi dağılımından örneklenir; İY seçimi varsa her gol ayrıca ``r``
+    olasılıkla ilk yarıya atanır (kesin hesaptan bağımsız bir yol)."""
     rng = random.Random(seed)  # noqa: S311 - simülasyon, kriptografi değil (tekrar üretilebilir tohum)
     groups = list(group(legs).values())
     hits = [True] * n
@@ -159,13 +254,21 @@ def simulate(legs: Sequence[Leg], n: int, seed: int = SEED) -> SimResult:
             p = fixture_joint(g)
             outcome = [rng.random() < p for _ in range(n)]
         else:
+            split = _group_split(g)
             size = len(matrix[0])
             cells = [(h, a) for h in range(len(matrix)) for a in range(size)]
             weights = [matrix[h][a] for h, a in cells]
             draws = rng.choices(range(len(cells)), weights=weights, k=n)
             preds = [leg.market.predicate for leg in g]
-            ok = [all(pr(*cells[c]) for pr in preds) for c in range(len(cells))]
-            outcome = [ok[d] for d in draws]
+            outcome = []
+            for d in draws:
+                h, a = cells[d]
+                if split is None:
+                    x = y = -1
+                else:
+                    x = sum(rng.random() < split[0] for _ in range(h))
+                    y = sum(rng.random() < split[1] for _ in range(a))
+                outcome.append(all(pr(h, a, x, y) for pr in preds))
         hits = [x and y for x, y in zip(hits, outcome, strict=True)]
     p = sum(hits) / n
     return SimResult(n, seed, p, math.sqrt(max(p * (1 - p), 1e-12) / n))

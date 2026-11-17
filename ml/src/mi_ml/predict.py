@@ -34,6 +34,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from mi_ml import halftime
 from mi_ml.calibration import apply_temperature
 from mi_ml.dixon_coles import DixonColes, UnknownTeam
 from mi_ml.ensemble import combine
@@ -64,6 +65,7 @@ class LoadedVersion:
     score_model: ScoreModel
     test_metrics: dict[str, Any]
     trained_until: datetime
+    first_half: dict[str, Any] | None = None
 
 
 def load_version(row: Any) -> LoadedVersion:
@@ -76,6 +78,7 @@ def load_version(row: Any) -> LoadedVersion:
         score_model=ScoreModel.from_json(artifact["score_model"]),
         test_metrics=row.metrics.get("test", {}).get("ensemble", {}),
         trained_until=row.trained_until,
+        first_half=artifact.get("first_half"),
     )
 
 
@@ -96,6 +99,24 @@ def score_matrix_payload(matrix: ScoreMatrix, max_goals: int = 10) -> list[list[
     p = matrix.probs[: max_goals + 1, : max_goals + 1]
     p = p / p.sum()
     return [[round(float(v), 7) for v in row] for row in p]
+
+
+def first_half_payload(version: LoadedVersion, matrix: ScoreMatrix) -> dict[str, Any]:
+    """İY piyasaları yalnızca İY modeli testte geçtiyse; aksi halde neden yazılır (çekimserlik)."""
+    fh = version.first_half
+    if not fh:
+        return {"available": False, "reasons": ["Bu model sürümünde İY değerlendirmesi yok"]}
+    if not fh.get("available") or not fh.get("split"):
+        return {
+            "available": False,
+            "reasons": list(fh.get("reasons") or ["İY modeli doğrulanmadı"]),
+        }
+    split = (float(fh["split"]["home"]), float(fh["split"]["away"]))
+    out = halftime.markets(np.asarray(score_matrix_payload(matrix)), split)
+    out["test"] = {
+        k: fh.get("test", {}).get(k) for k in ("n", "log_loss", "baseline_log_loss", "ece")
+    }
+    return out
 
 
 def reliability_level(test: dict[str, Any], th: Thresholds) -> str:
@@ -261,6 +282,7 @@ def predict(
                 # Tam ortak skor dağılımı (0..10 gol): kupon motoru aynı maçtaki birden fazla
                 # seçimin birleşik olasılığını buradan kesin hesaplar. Kuyruk ≈ 0, normalize edilir.
                 probabilities["score_matrix"] = score_matrix_payload(matrix)
+                probabilities["first_half"] = first_half_payload(version, matrix)
                 if boot:
                     point = base.one_x_two()
                     samples = []
