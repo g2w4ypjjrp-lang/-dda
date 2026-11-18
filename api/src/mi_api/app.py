@@ -34,6 +34,7 @@ from mi_api.ops.api import create_ops_router
 from mi_api.ops.metrics import MemoryMetrics, Metrics, RedisMetrics
 from mi_api.predictions.api import create_predictions_router
 from mi_api.ratelimit import Limiter, MemoryLimiter, RedisLimiter
+from mi_api.scheduler import Scheduler
 from mi_api.virtual.api import create_virtual_router
 
 
@@ -52,9 +53,17 @@ def create_app(
         limiter = RedisLimiter(redis) if redis is not None else MemoryLimiter()
     services = Services.build(cfg, db, limiter, clock)
 
+    # Tek sunucu modu: zamanlanmış işler bu süreçte (Celery/Redis yok).
+    scheduler = Scheduler(cfg) if cfg.single_server else None
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        runner = asyncio.create_task(scheduler.run_forever()) if scheduler else None
         yield
+        if runner is not None and scheduler is not None:
+            runner.cancel()
+            await asyncio.gather(runner, return_exceptions=True)
+            await scheduler.stop()
         await db.close()
         if redis is not None:
             await redis.aclose()
@@ -69,6 +78,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.services = services
+    app.state.scheduler = scheduler
     app.state.football = FootballRuntime(
         cfg, clock=clock, redis=redis, transport=football_transport
     )

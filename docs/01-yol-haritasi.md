@@ -10,7 +10,7 @@ güvenlik → test → hata düzeltme → rapor. Bir faz, kabul kriterleri **ger
 |---|---|---|---|
 | **M-G1** | Futbol veri sağlayıcısı aboneliği ve API anahtarı | Faz 2 | Sağlayıcı + paket seçimi (aşağıdaki karşılaştırma) |
 | **M-G2** | Lisanslı oran verisi | Faz 4 | Sağlayıcı; yoksa EV/CLV hiç gösterilmez |
-| **M-G3** | Alan adı, bulut sağlayıcısı, üretim dağıtımı | Faz 10 | Karar: `futbol.canarslan.net.tr`, mevcut VDS'de ayrık kurulum ([vds-kurulum](vds-kurulum.md)); alt alan adı olduğu için çerezler ana siteden ayrı |
+| **M-G3** | Alan adı, bulut sağlayıcısı, üretim dağıtımı | Faz 10 | Karar: `futbol.canarslan.net.tr`, mevcut Windows VDS'de ayrık kurulum ([windows-kurulum](windows-kurulum.md)); alt alan adı olduğu için çerezler ana siteden ayrı |
 | **M-G4** | Hukuki inceleme: KVKK metinleri, abonelik sözleşmesi, bahis/şans oyunları mevzuatı karşısında konumlandırma | Faz 6 öncesi | Hukukçu onayı |
 | **M-G5** | Canlı ödeme (PayTR / iyzico / Stripe) | Faz 6 | Şirket bilgileri, sağlayıcı sözleşmesi |
 | **M-G6** | E-posta / push sağlayıcısı | Faz 6-9 | Sağlayıcı ve gönderen alan adı |

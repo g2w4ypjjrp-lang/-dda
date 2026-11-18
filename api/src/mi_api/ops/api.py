@@ -83,6 +83,12 @@ class FlagBody(BaseModel):
     message: str | None = Field(default=None, max_length=300)
 
 
+def _local_beat(request: Request) -> Any:
+    """Tek sunucu modunda API içindeki zamanlayıcının son atışı (yoksa None)."""
+    scheduler = getattr(request.app.state, "scheduler", None)
+    return scheduler.last_beat if scheduler is not None else None
+
+
 def _ctx(
     request: Request, db: Any, services: Any, admin: Principal, ip: str | None
 ) -> approvals.Ctx:
@@ -111,6 +117,7 @@ def create_ops_router() -> APIRouter:
             request.app.state.redis,
             request.app.state.metrics,
             services.clock(),
+            local_heartbeat=_local_beat(request),
         )
 
     @router.get("/metrics", include_in_schema=False)
@@ -128,6 +135,7 @@ def create_ops_router() -> APIRouter:
             request.app.state.redis,
             request.app.state.metrics,
             services.clock(),
+            local_heartbeat=_local_beat(request),
         )
         return Response(body, media_type="text/plain; version=0.0.4; charset=utf-8")
 
@@ -166,6 +174,7 @@ def create_ops_router() -> APIRouter:
             request.app.state.redis,
             request.app.state.metrics,
             services.clock(),
+            local_heartbeat=_local_beat(request),
         )
         items = await actions.visible(db, issues, admin.permissions, include_acked)
         counts: dict[str, int] = {}
@@ -189,6 +198,7 @@ def create_ops_router() -> APIRouter:
             request.app.state.redis,
             request.app.state.metrics,
             services.clock(),
+            local_heartbeat=_local_beat(request),
         )
         issue = next((i for i in issues if i.key == body.key), None)
         if issue is None or issue.permission not in admin.permissions:

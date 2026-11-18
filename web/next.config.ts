@@ -22,6 +22,9 @@ const config: NextConfig = {
   // rota tablosuna yazılır; imaj derlenirken verilmelidir.
   output: "standalone",
   poweredByHeader: false,
+  // Görsel optimizasyonu kullanılmıyor: uç kapalı, yerel "sharp" bağımlılığı gerekmez
+  // (Windows hafif kurulumu için önceden derlenmiş paket platformdan bağımsız kalır).
+  images: { unoptimized: true },
   reactStrictMode: true,
   async rewrites() {
     return [

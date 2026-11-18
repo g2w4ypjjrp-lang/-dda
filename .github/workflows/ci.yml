@@ -220,3 +220,29 @@ jobs:
       - name: Web üretim bağımlılıkları (geliştirme araçları hariç; bkz. docs/13-faz10-raporu.md)
         working-directory: web
         run: npm audit --omit=dev --audit-level=high
+
+  windows:
+    name: Windows kurulumu (PowerShell 5.1 ayrıştırma + olay döngüsü)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell betiklerini Windows PowerShell 5.1 ile ayrıştır
+        shell: powershell
+        run: |
+          $hata = $false
+          foreach ($f in Get-ChildItem deploy/windows -Filter *.ps1) {
+            $tokens = $null; $errs = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errs) | Out-Null
+            if ($errs) { $errs | ForEach-Object { Write-Host "$($f.Name) satır $($_.Extent.StartLineNumber): $($_.Message)" }; $hata = $true }
+            else { Write-Host "$($f.Name): ok" }
+          }
+          if ($hata) { exit 1 }
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Windows'ta bağımlılıklar, olay döngüsü ve sürücü
+        working-directory: api
+        run: |
+          uv sync --locked --no-dev
+          uv run python ../deploy/windows/kontrol.py

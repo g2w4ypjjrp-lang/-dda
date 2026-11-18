@@ -44,10 +44,15 @@ class _Out:
 
 
 async def render(
-    db: AsyncSession, settings: Settings, redis: Redis | None, metrics: Metrics, now: datetime
+    db: AsyncSession,
+    settings: Settings,
+    redis: Redis | None,
+    metrics: Metrics,
+    now: datetime,
+    local_heartbeat: datetime | None = None,
 ) -> str:
     out = _Out()
-    snap = await health.snapshot(db, settings, redis, metrics, now)
+    snap = await health.snapshot(db, settings, redis, metrics, now, local_heartbeat)
     for name, comp in snap["components"].items():
         status = comp.get("status")
         out.add(

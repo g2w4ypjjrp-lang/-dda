@@ -46,7 +46,12 @@ class Issue:
 
 
 async def collect(
-    db: AsyncSession, settings: Settings, redis: Redis | None, metrics: Metrics, now: datetime
+    db: AsyncSession,
+    settings: Settings,
+    redis: Redis | None,
+    metrics: Metrics,
+    now: datetime,
+    local_heartbeat: datetime | None = None,
 ) -> list[Issue]:
     out: list[Issue] = []
 
@@ -196,6 +201,8 @@ async def collect(
             )
         )
 
+    watch_beat = redis is not None or settings.single_server
+    last: datetime | None = local_heartbeat
     if redis is not None:
         try:
             raw = await redis.get(HEARTBEAT_KEY)
@@ -204,21 +211,21 @@ async def collect(
         last = (
             datetime.fromisoformat(raw.decode() if isinstance(raw, bytes) else raw) if raw else None
         )
-        if last is None or now - last > HEARTBEAT_STALE:
-            out.append(
-                Issue(
-                    "worker:heartbeat",
-                    "tasks",
-                    "critical" if last else "warning",
-                    "Arka plan işçisi/zamanlayıcı yanıt vermiyor"
-                    if last
-                    else "Arka plan işçisinden hiç kalp atışı alınmadı",
-                    f"Son kalp atışı: {last.isoformat() if last else 'yok'}. Veri senkronizasyonu ve kupon sonuçlandırma çalışmıyor olabilir.",
-                    "/yonetim/sistem",
-                    last.isoformat() if last else None,
-                    "system.read",
-                )
+    if watch_beat and (last is None or now - last > HEARTBEAT_STALE):
+        out.append(
+            Issue(
+                "worker:heartbeat",
+                "tasks",
+                "critical" if last else "warning",
+                "Arka plan işçisi/zamanlayıcı yanıt vermiyor"
+                if last
+                else "Arka plan işçisinden hiç kalp atışı alınmadı",
+                f"Son kalp atışı: {last.isoformat() if last else 'yok'}. Veri senkronizasyonu ve kupon sonuçlandırma çalışmıyor olabilir.",
+                "/yonetim/sistem",
+                last.isoformat() if last else None,
+                "system.read",
             )
+        )
 
     for v in (
         await db.execute(select(DesignVersion).where(DesignVersion.status == "draft"))

@@ -6,6 +6,7 @@ import argparse
 
 import uvicorn
 
+from mi_api import aio
 from mi_api.app import create_app
 from mi_api.config import Settings
 from mi_api.logs import configure_logging
@@ -18,7 +19,7 @@ def main() -> None:
     args = parser.parse_args()
     settings = Settings()
     configure_logging(settings.log_level, json_output=settings.log_json)
-    uvicorn.run(
+    config = uvicorn.Config(
         create_app(settings),
         host=args.host,
         port=args.port,
@@ -27,6 +28,12 @@ def main() -> None:
         log_config=None,
         access_log=False,
     )
+    server = uvicorn.Server(config)
+    if aio.WINDOWS:
+        # uvicorn Windows'ta Proactor döngüsü seçer, psycopg onu desteklemez → Selector ile.
+        aio.run(server.serve())
+    else:
+        server.run()
 
 
 if __name__ == "__main__":

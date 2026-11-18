@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # deploy/vds) TLS şartı kaldırılabilir. Yalnızca sunucu adı noktasız bir kapsayıcı adıysa
     # geçerli; uzak bir veritabanıyla bu ayar reddedilir.
     database_private_network: bool = False
+    # Tek sunucu modu (Windows hafif kurulum, deploy/windows): Redis ve Celery yok; zamanlanmış
+    # işler API sürecinin içinde (mi_api.scheduler), hız sınırı bellekte. API tek süreçle çalışır.
+    single_server: bool = False
     # Prometheus /metrics ucu için taşıyıcı jeton. Boşsa uç 404 döner (kapalı).
     metrics_token: SecretStr | None = None
 
@@ -117,15 +120,17 @@ class Settings(BaseSettings):
             problems.append("adresler HTTPS olmalı: " + ", ".join(insecure))
         if kek is None:
             problems.append("MI_SECRET_KEK zorunlu (yönetici MFA'sı)")
-        if self.redis_url is None:
+        if self.redis_url is None and not self.single_server:
             problems.append("MI_REDIS_URL zorunlu (çok örnekli hız sınırı)")
         dsn = self.database_url.get_secret_value()
         if self.database_private_network:
             host = make_url(dsn).host or ""
-            if not host or "." in host or ":" in host:
+            loopback = host in ("127.0.0.1", "localhost", "::1")
+            if not host or (("." in host or ":" in host) and not loopback):
                 problems.append(
                     "MI_DATABASE_PRIVATE_NETWORK yalnızca aynı Docker ağındaki kapsayıcı adıyla"
-                    f" (ör. postgres) kullanılabilir; sunucu: {host or 'yok'}"
+                    " (ör. postgres) ya da aynı makinedeki (127.0.0.1) veritabanıyla"
+                    f" kullanılabilir; sunucu: {host or 'yok'}"
                 )
         elif "sslmode=verify-full" not in dsn:
             problems.append("veritabanı bağlantısında sslmode=verify-full zorunlu")

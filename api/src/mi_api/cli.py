@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import sys
 import uuid
@@ -29,7 +28,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, text
 
-from mi_api import audit
+from mi_api import aio, audit
 from mi_api.config import Settings
 from mi_api.db import Database
 from mi_api.football.sync import JOBS
@@ -161,12 +160,12 @@ def main(argv: list[str] | None = None) -> None:
         upgrade(settings.database_url.get_secret_value())
         print("Geçişler uygulandı.")
     elif args.command == "bootstrap":
-        link = asyncio.run(bootstrap(settings, args.email, args.name))
+        link = aio.run(bootstrap(settings, args.email, args.name))
         print("SUPER_ADMIN oluşturuldu. Parola belirleme bağlantısı (24 saat, tek kullanım):")
         print(link)
         print("Sonra: giriş → Hesap → İki adımlı doğrulama → Yönetim paneli.")
     elif args.command == "audit-verify":
-        broken = asyncio.run(audit_verify(settings))
+        broken = aio.run(audit_verify(settings))
         if broken is None:
             print("Denetim kaydı zinciri sağlam.")
         else:
@@ -175,19 +174,17 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "grant-plan":
         if not 1 <= args.days <= 3660:
             raise SystemExit("--days 1 ile 3660 arasında olmalı")
-        end = asyncio.run(grant_plan(settings, args.email, args.plan, args.days))
+        end = aio.run(grant_plan(settings, args.email, args.plan, args.days))
         print(f"{args.plan} verildi; bitiş: {end}")
     elif args.command == "rotate-kek":
-        print(
-            json.dumps(asyncio.run(rotate_kek(settings, dry_run=args.dry_run)), ensure_ascii=False)
-        )
+        print(json.dumps(aio.run(rotate_kek(settings, dry_run=args.dry_run)), ensure_ascii=False))
         if not args.dry_run:
             print("Şimdi MI_SECRET_KEK'i yeni değerle güncelleyin ve API/işçiyi yeniden başlatın.")
     elif args.command in ("backup", "backup-verify", "restore"):
         _backup_command(settings, args)
     elif args.command == "football-sync":
+        from mi_api.jobs import run_job
         from mi_api.logs import configure_logging
-        from mi_api.worker import run_job
 
         configure_logging(settings.log_level, json_output=settings.log_json)
         params = {
@@ -200,7 +197,7 @@ def main(argv: list[str] | None = None) -> None:
             }.items()
             if v is not None
         }
-        result = asyncio.run(run_job(args.job, params, trigger="cli"))
+        result = aio.run(run_job(args.job, params, trigger="cli"))
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if result["status"] == "failed":
             raise SystemExit(1)
@@ -236,7 +233,7 @@ def _backup_command(settings: Settings, args: argparse.Namespace) -> None:
 
     try:
         if args.command == "backup":
-            out = asyncio.run(backup.create(settings, "cli", verify_after=not args.no_verify))
+            out = aio.run(backup.create(settings, "cli", verify_after=not args.no_verify))
             print(
                 json.dumps(
                     {"id": out.id, "status": out.status, **out.detail}, ensure_ascii=False, indent=2
@@ -245,7 +242,7 @@ def _backup_command(settings: Settings, args: argparse.Namespace) -> None:
             if out.status != "ok" or out.detail.get("verify", {"ok": True}).get("ok") is False:
                 raise SystemExit(1)
         elif args.command == "backup-verify":
-            res = asyncio.run(backup.verify(settings, args.id, restore=not args.no_restore))
+            res = aio.run(backup.verify(settings, args.id, restore=not args.no_restore))
             print(json.dumps(res, ensure_ascii=False, indent=2, default=str))
             if not res["ok"]:
                 raise SystemExit(1)

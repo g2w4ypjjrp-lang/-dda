@@ -57,8 +57,14 @@ def host_resources() -> dict[str, Any]:
 
 
 async def snapshot(
-    db: AsyncSession, settings: Settings, redis: Redis | None, metrics: Metrics, now: datetime
+    db: AsyncSession,
+    settings: Settings,
+    redis: Redis | None,
+    metrics: Metrics,
+    now: datetime,
+    local_heartbeat: datetime | None = None,
 ) -> dict[str, Any]:
+    """``local_heartbeat``: tek sunucu modunda API içindeki zamanlayıcının son atışı."""
     comp: dict[str, Any] = {}
 
     t0 = time.perf_counter()
@@ -79,7 +85,11 @@ async def snapshot(
         comp["database"] = {"status": "down", "error": type(exc).__name__}
 
     heartbeat: datetime | None = None
-    if redis is None:
+    if redis is None and settings.single_server:
+        comp["redis"] = {"status": "not_used", "detail": "Tek sunucu modu: Redis kullanılmıyor"}
+        comp["queue"] = {"status": "not_used", "detail": "İşler API sürecinin içinde çalışır"}
+        heartbeat = local_heartbeat
+    elif redis is None:
         comp["redis"] = {"status": "not_configured"}
         comp["queue"] = {"status": "unknown", "detail": "Redis yok; kuyruk ölçülemez"}
     else:

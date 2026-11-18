@@ -29,7 +29,8 @@ kazanç garantisi vermez.
 12. [Faz 7 kalanları — kişisel panel, bildirimler, içerik, PWA](docs/12-faz7-raporu.md)
 13. [Faz 10 raporu — yayın öncesi: güvenlik, yedek, izleme, dağıtım](docs/13-faz10-raporu.md)
 14. [Çalıştırma kılavuzu (üretim)](docs/calistirma-kilavuzu.md)
-15. [futbol.canarslan.net.tr — mevcut VDS'ye ayrık kurulum](docs/vds-kurulum.md)
+15. [futbol.canarslan.net.tr — Linux sunucuya ayrık kurulum (Docker)](docs/vds-kurulum.md)
+16. [futbol.canarslan.net.tr — Windows VDS'ye kurulum (botla aynı sunucu)](docs/windows-kurulum.md)
 
 ## Hızlı başlangıç
 

@@ -74,11 +74,15 @@ Erişilebilirlik: E2E her koşuda axe ile WCAG 2.1 AA denetler (`e2e/a11y.ts` �
 tasarım renkleri `design/contrast.py` (web: `lib/contrast.ts`) eşiğini geçmeden yayımlanamaz; vurgu
 tonlu zemine `tone-highlight` sınıfı verin. Anahtar döndürme: `mi-admin rotate-kek`.
 
-Dağıtım kararı (M-G3, kullanıcı): `futbol.canarslan.net.tr`, kullanıcının mevcut VDS'sinde, oradaki site ve
-botlarından AYRIK — `deploy/vds/` (Docker projesi "futbol", /opt/futbol, yalnızca 127.0.0.1:3080, nginx/Apache
-için ayrı vhost dosyası) ve `docs/vds-kurulum.md`. Sunucudaki başka hiçbir şeye dokunulmaz.
+Dağıtım kararı (M-G3, kullanıcı): `futbol.canarslan.net.tr`, kullanıcının mevcut **Windows 11 VDS**'sinde
+(sanallaştırma kapalı → Docker yok; 6 GB bellek, bot `ati-engine` ve Caddy `C:\ATI\...` aynı makinede),
+`C:\Kurulum\Futbol` altında, bottan AYRIK — `deploy/windows/` + `docs/windows-kurulum.md`. Tek sunucu modu
+(`MI_SINGLE_SERVER=true`): Redis/Celery yok, işler `mi_api/scheduler.py` ile API içinde; Windows'ta olay döngüsü
+`mi_api/aio.py` (psycopg Proactor'la çalışmaz). Portlar: web 3080, API 8081, PostgreSQL 5433 (yalnızca 127.0.0.1);
+web önceden derlenip gönderilir (`MI_API_URL=http://127.0.0.1:8081`). Caddy'ye işaretli blok `caddy-ekle.ps1` ile.
+Linux sunucu için `deploy/vds/` (Docker) de hazır ve test edildi.
 
-Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 sunucuda kurulumun
-uygulanması (kontrol.sh çıktısı bekleniyor), M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
+Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 Windows kurulumunun
+sunucuda uygulanması (kullanıcı adım adım çalıştırıyor), M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.
