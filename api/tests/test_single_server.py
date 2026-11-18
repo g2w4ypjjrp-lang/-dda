@@ -80,6 +80,14 @@ def test_schedule_mirrors_celery_beat(monkeypatch: Any) -> None:
     assert {j.name for j in build_jobs(with_provider)} == beat
     no_provider = {j.name for j in build_jobs(Settings(database_url="postgresql://x/y"))}
     assert no_provider == {"coupons-settle", "notifications-scan", "backup-daily"}
+    # Canlı takip kapalı: yalnızca fikstür, sonuç ve puan durumu (tahmin için yeterli).
+    no_live = Settings(
+        database_url="postgresql://x/y",
+        football_provider="football_data",
+        football_api_key="k",
+        football_live_enabled=False,
+    )
+    assert {j.name for j in build_jobs(no_live)} == beat - {"live", "upcoming-details"}
 
 
 async def test_scheduler_runs_jobs_without_overlap() -> None:

@@ -106,6 +106,49 @@ Bu komut tek kullanımlık bir bağlantı verir. Sonrasında:
 * Sunucu arızasına karşı yedekleri ayrıca başka bir yere kopyalayın.
 * Sunucu yeniden başladığında veritabanı hizmeti ve iki görev kendiliğinden açılır.
 
+## Gerçek maç verisi ve tahminler (M-G1)
+
+Veri sağlayıcı: **football-data.org, ücretsiz paket**. Kapsadığı ligler: Premier League, La Liga,
+Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira Liga, Championship, Şampiyonlar Ligi, Brezilya
+Serie A, Dünya Kupası ve Avrupa Şampiyonası.
+
+Bilmeniz gerekenler:
+- **Süper Lig ücretsiz pakette yok.**
+- Canlı skor takibi kapalıdır; yalnızca fikstür, sonuç ve puan durumu çekilir. Tahmin için bu yeterlidir.
+- Ücretsiz paket ticari kullanım için değildir. Paket satışına (M-G5) geçmeden önce ücretli pakete geçin.
+
+Adımlar:
+
+1. https://www.football-data.org/client/register adresinden ücretsiz hesap açın ve e-postanıza gelen API anahtarını not edin. **Anahtarı kimseyle paylaşmayın.**
+2. Yönetici PowerShell'de `notepad C:\Kurulum\Futbol\ayarlar\futbol.env` komutuyla ayar dosyasını açın. Şu iki satırı değiştirip kaydedin:
+   ```
+   MI_FOOTBALL_PROVIDER=football_data
+   MI_FOOTBALL_API_KEY=<anahtarınız>
+   ```
+3. Sunucuda açık Claude, Chrome ve ChatGPT'yi kapatın; model eğitimi bellek ister. Sonra:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File "C:\Kurulum\Futbol\match-intelligence\deploy\windows\futbol.ps1" tahmin-hazirla
+   ```
+   Bu komut sırasıyla şunları yapar:
+   1. Tahmin motorunu kurar (~300 MB).
+   2. Dün ile 8 gün sonrası arasındaki maçları çeker; ligler buradan oluşur.
+   3. Her lig için son 4 sezonu yükler. Dakikada 10 istek sınırına uymak için istekler arasında beklenir; toplam 10–20 dakika sürer.
+   4. Her lig için modeli düşük öncelikle eğitir.
+   5. 30 dakikada bir çalışan **Futbol-tahmin** görevini kurar.
+
+   Bir ligin ilk modeli kendiliğinden "şampiyon" olur ve tahminlerde kullanılır. Sonraki eğitimler aday olarak kaydedilir; şampiyon değişikliği Model Lab'dan yapılır.
+4. Tahminler maçtan önce yazılır ve sonradan değiştirilemez. Model, verisi yetersiz kaldığı maçlarda tahmin vermez (çekimser kalır) ve nedenini gösterir; uydurma tahmin yayımlanmaz.
+
+İzleme ve tekrar:
+- Günlük: `futbol.ps1 loglar tahmin`
+- Tahminleri hemen yeniden yazdırmak: `futbol.ps1 tahmin`
+- Daha uzun geçmişle eğitmek (örneğin 6 sezon): `futbol.ps1 tahmin-hazirla -Sezon 6`
+
+## Güncelleme (yeni paket geldiğinde)
+
+1. Yeni `futbol-windows-kurulum.zip` dosyasını `C:\Kurulum\Futbol` içine açın ve "Dosyaları değiştir" sorusuna **Evet** deyin. Veri, ayarlar ve yedekler bu klasörlerin dışında olduğu için korunur.
+2. Kurulumu yeniden çalıştırın: `kur.ps1`. Kurulum tekrar çalıştırmaya uygundur; kodu, bağımlılıkları ve veritabanı şemasını günceller, ardından hizmetleri yeniden başlatır.
+
 ## Sonraki adımlar (onay kapıları)
 
 Üye kaydını açmadan önce:

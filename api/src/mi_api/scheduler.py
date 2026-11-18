@@ -66,10 +66,13 @@ def build_jobs(settings: Settings) -> list[Job]:
             Job("fixtures-today", _football("fixtures_date", {"offset_days": 0}), every=timedelta(seconds=600)),
             Job("fixtures-tomorrow", _football("fixtures_date", {"offset_days": 1}), every=timedelta(hours=1)),
             Job("fixtures-yesterday", _football("fixtures_date", {"offset_days": -1}), every=timedelta(hours=1)),
-            Job("live", _football("live", {}), every=timedelta(seconds=60)),
-            Job("upcoming-details", _football("upcoming_details", {}), every=timedelta(seconds=900)),
             Job("standings", _football("standings_active", {}), every=timedelta(hours=6)),
         ]  # fmt: skip
+        if settings.football_live_enabled:
+            out += [
+                Job("live", _football("live", {}), every=timedelta(seconds=60)),
+                Job("upcoming-details", _football("upcoming_details", {}), every=timedelta(seconds=900)),
+            ]  # fmt: skip
     return out
 
 

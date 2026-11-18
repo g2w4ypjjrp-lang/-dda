@@ -19,6 +19,7 @@ $PgBin   = Join-Path $Araclar 'pgsql\bin'
 $UvExe   = Join-Path $Araclar 'uv\uv.exe'
 # Python doğrudan çalıştırılır (mi-api.exe başlatıcısı alt süreç açar; durdurma/öncelik için tek süreç).
 $PyExe   = Join-Path $Proje 'api\.venv\Scripts\python.exe'
+$MlPy    = Join-Path $Proje 'ml\.venv\Scripts\python.exe'      # tahmin motoru (ayrı ortam)
 
 $Alan     = 'futbol.canarslan.net.tr'
 $WebPort  = 3080          # önceden derlenmiş web paketi API'yi 127.0.0.1:8081'de bekler
@@ -67,6 +68,28 @@ function Sql-Dosya([string]$kullanici, [string]$parola, [string]$sql) {
     $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'; $env:PGPASSWORD = $parola
     try { & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U $kullanici -d futbol -v ON_ERROR_STOP=1 -q -f $f }
     finally { Remove-Item $f -Force -ErrorAction SilentlyContinue; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue; $env:PGCLIENTENCODING = $eskiEnc }
+}
+
+function Uv-Ortam {
+    # uv ve Python yalnızca futbol klasörünün içinde (araclar) tutulur.
+    $env:UV_PYTHON_INSTALL_DIR = Join-Path $Araclar 'python'
+    $env:UV_CACHE_DIR = Join-Path $Araclar 'uv-onbellek'
+    $env:UV_PYTHON_PREFERENCE = 'only-managed'
+}
+
+function Env-Ekle([string]$anahtar, [string]$deger) {
+    # Ayar dosyasında anahtar yoksa ekler (varsa dokunmaz).
+    if (-not (Select-String -Path $EnvDosya -Pattern "^$([regex]::Escape($anahtar))=" -Quiet)) {
+        [IO.File]::AppendAllText($EnvDosya, "$anahtar=$deger`r`n", (New-Object Text.UTF8Encoding($false)))
+    }
+}
+
+function Dusuk-Oncelikle([string]$exe, [string[]]$arg) {
+    # Uzun işler (eğitim) botu yormasın: "normalin altı" öncelik, bitene kadar bekler.
+    $p = Start-Process -FilePath $exe -ArgumentList $arg -WorkingDirectory $Kok -NoNewWindow -PassThru
+    try { $p.PriorityClass = 'BelowNormal' } catch {}
+    $p.WaitForExit()
+    return $p.ExitCode
 }
 
 function Env-Deger([string]$anahtar) {

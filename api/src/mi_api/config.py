@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     football_daily_budget: int = Field(default=100, ge=1)
     football_minute_budget: int = Field(default=10, ge=1)
     football_reserve_pct: int = Field(default=20, ge=0, le=90)
+    # Canlı skor ve maç öncesi ayrıntı (kadro/istatistik) işleri. Kapalıyken yalnızca fikstür,
+    # sonuç ve puan durumu çekilir (tahmin için yeterli; ücretsiz paketin istek hakkını korur).
+    football_live_enabled: bool = True
 
     # Faz 6: ödeme. "none": satış kapalı. "simulator" yalnızca development/test. PayTR/iyzico test
     # modunda başlar; canlı ödeme yalnızca payments_live_allowed (M-G5 onayı) açıkken.

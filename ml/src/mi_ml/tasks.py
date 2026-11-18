@@ -15,12 +15,10 @@ from typing import Any
 
 from mi_api.config import Settings
 from mi_api.migrate import sync_url
-from mi_api.predictions.models import ModelVersion
 from mi_api.worker import app
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
-from mi_ml.pipeline import predict_scope, settle
+from mi_ml import jobs
 
 log = logging.getLogger(__name__)
 
@@ -32,35 +30,16 @@ def _engine() -> Any:
 @app.task(name="mi.ml.predict_active")  # type: ignore[untyped-decorator]
 def predict_active() -> dict[str, Any]:
     engine = _engine()
-    now = datetime.now(UTC)
-    summary: dict[str, Any] = {}
     try:
-        with Session(engine) as session:
-            scopes = session.scalars(
-                select(ModelVersion.scope).where(ModelVersion.status == "champion")
-            ).all()
-        for scope in scopes:
-            ids = list(scope["competition_ids"])
-            try:
-                with Session(engine) as session, session.begin():
-                    preds = predict_scope(session, ids, now=now)
-                summary[",".join(map(str, ids))] = {
-                    "written": len(preds),
-                    "published": sum(p.status == "published" for p in preds),
-                }
-            except Exception as exc:  # bir kapsamın hatası diğerlerini durdurmaz
-                log.exception("Tahmin üretilemedi: %s", ids)
-                summary[",".join(map(str, ids))] = {"error": type(exc).__name__}
+        return jobs.predict_active(engine, datetime.now(UTC))
     finally:
         engine.dispose()
-    return summary
 
 
 @app.task(name="mi.ml.settle")  # type: ignore[untyped-decorator]
 def settle_task() -> dict[str, int]:
     engine = _engine()
     try:
-        with Session(engine) as session, session.begin():
-            return {"settled": settle(session, now=datetime.now(UTC))}
+        return jobs.settle_all(engine, datetime.now(UTC))
     finally:
         engine.dispose()

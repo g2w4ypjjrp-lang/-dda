@@ -3,6 +3,7 @@
     mi-ml train   --competition-id 12 [--competition-id 13] [--trials 100] [--window-days 30]
     mi-ml predict --competition-id 12 [--horizon-days 7] [--bootstrap 30]
     mi-ml settle
+    mi-ml predict-active        # şampiyon modeli olan tüm kapsamlar (Windows Zamanlanmış Görevi)
 
 Veritabanı adresi ``MI_DATABASE_URL`` ortam değişkeninden (API ile aynı ayarlar).
 """
@@ -21,6 +22,7 @@ from mi_api.migrate import sync_url
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from mi_ml import jobs
 from mi_ml.backtest import TrainConfig
 from mi_ml.pipeline import predict_scope, settle, train_scope
 from mi_ml.predict import Thresholds
@@ -41,6 +43,7 @@ def main(argv: list[str] | None = None) -> None:
     pr.add_argument("--horizon-days", type=int, default=7)
     pr.add_argument("--bootstrap", type=int, default=30)
     sub.add_parser("settle", help="Biten maçların tahminlerini sonuçlandır")
+    sub.add_parser("predict-active", help="Şampiyon modeli olan tüm kapsamlar için tahmin yaz")
     args = parser.parse_args(argv)
 
     settings = Settings()
@@ -100,6 +103,8 @@ def _run(args: argparse.Namespace, engine: Any, now: datetime) -> None:
             )
         elif args.command == "settle":
             print(json.dumps({"settled": settle(session, now=now)}))
+        elif args.command == "predict-active":
+            print(json.dumps(jobs.predict_active(engine, now), ensure_ascii=False))
 
 
 if __name__ == "__main__":

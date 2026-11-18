@@ -54,13 +54,6 @@ app.conf.update(
             "schedule": 3600.0,
             "args": ("fixtures_date", {"offset_days": -1}),
         },
-        # Canlı: veritabanında canlı/başlamak üzere maç yoksa istek atmadan atlanır.
-        "live": {"task": "mi.football.sync", "schedule": 60.0, "args": ("live", {})},
-        "upcoming-details": {
-            "task": "mi.football.sync",
-            "schedule": 900.0,
-            "args": ("upcoming_details", {}),
-        },
         # Kupon sonuçlandırma: biten maçların seçimleri ve kuponların durumu.
         "coupons-settle": {"task": "mi.coupons.settle", "schedule": 900.0},
         # Kalp atışı: zamanlayıcı (beat) planlar, işçi çalıştırır; System Health ikisini de izler.
@@ -76,6 +69,19 @@ app.conf.update(
         },
     },
 )
+
+if _settings.football_live_enabled:
+    app.conf.beat_schedule.update(
+        {
+            # Canlı: veritabanında canlı/başlamak üzere maç yoksa istek atmadan atlanır.
+            "live": {"task": "mi.football.sync", "schedule": 60.0, "args": ("live", {})},
+            "upcoming-details": {
+                "task": "mi.football.sync",
+                "schedule": 900.0,
+                "args": ("upcoming_details", {}),
+            },
+        }
+    )
 
 if _settings.ml_schedule_enabled:
     app.conf.beat_schedule.update(

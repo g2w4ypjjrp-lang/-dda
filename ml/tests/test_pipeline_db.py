@@ -167,3 +167,20 @@ def test_settle_once(session: Session, sql: Any, league: dict[str, int]) -> None
     ] is None  # İY skoru kayıtlı; İY tahmini yayımlanmadı
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         sql.execute("UPDATE ml_prediction_outcomes SET outcome='away'")
+
+
+def test_predict_active_job_covers_champion_scopes(
+    session: Session, sql: Any, league: dict[str, int]
+) -> None:
+    """Windows tek sunucu kurulumu Celery'siz ``mi-ml predict-active`` çalıştırır."""
+    from mi_ml import jobs
+
+    comp = league["competition_id"]
+    engine = session.get_bind()
+    assert jobs.predict_active(engine, NOW) == {}  # şampiyon yok → yazılacak bir şey yok
+    _train(session, comp)  # ilk model kendiliğinden şampiyon
+    summary = jobs.predict_active(engine, NOW)
+    assert summary[str(comp)]["written"] == 2  # ufuk içindeki 2 maç
+    again = jobs.predict_active(engine, NOW)
+    assert again[str(comp)]["written"] == 0  # değişmeyen maç yeniden yazılmaz
+    assert jobs.settle_all(engine, NOW) == {"settled": 0}  # henüz biten maç yok

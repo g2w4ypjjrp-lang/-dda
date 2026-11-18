@@ -108,6 +108,10 @@ if (-not (Test-Path $EnvDosya)) {
     )
     [IO.File]::WriteAllLines($EnvDosya, $satirlar, (New-Object Text.UTF8Encoding($false)))
 }
+# Sonradan eklenen ayarlar (eski kurulumlarda eksikse eklenir; mevcut değerlere dokunulmaz).
+Env-Ekle 'MI_FOOTBALL_LIVE_ENABLED' 'false'      # canlı skor yok: yalnızca fikstür, sonuç, puan durumu
+Env-Ekle 'MI_FOOTBALL_DAILY_BUDGET' '2000'      # football-data.org ücretsiz: günlük sınır yok, dakikada 10
+Env-Ekle 'MI_FOOTBALL_MINUTE_BUDGET' '8'
 $ag = Ag-Hizmeti-Adi
 # Ayar dosyasını yalnızca Yöneticiler, SYSTEM ve hizmet hesabı okuyabilir.
 icacls $EnvDosya /inheritance:r /grant:r '*S-1-5-32-544:F' '*S-1-5-18:F' '*S-1-5-20:R' | Out-Null
@@ -161,14 +165,17 @@ Remove-Item Env:PGPASSWORD
 
 # --- 6. Python ortamı (bağımlılıklar hazır paketlerden; derleme yok) --------------------------
 Yaz 'Python ve bağımlılıklar kuruluyor (ilk seferde birkaç dakika)'
-$env:UV_PYTHON_INSTALL_DIR = Join-Path $Araclar 'python'
-$env:UV_CACHE_DIR = Join-Path $Araclar 'uv-onbellek'
-$env:UV_PYTHON_PREFERENCE = 'only-managed'
+Uv-Ortam
 Push-Location (Join-Path $Proje 'api')
 try {
     & $UvExe sync --locked --no-dev --python 3.12 | Out-Host
     if ($LASTEXITCODE -ne 0) { Dur 'Python bağımlılıkları kurulamadı' }
 } finally { Pop-Location }
+# Tahmin motoru daha önce kurulduysa (tahmin-hazirla) güncel koda göre yenilenir.
+if (Test-Path $MlPy) {
+    Push-Location (Join-Path $Proje 'ml')
+    try { & $UvExe sync --locked --no-dev --python 3.12 | Out-Host } finally { Pop-Location }
+}
 & $UvExe cache clean | Out-Null   # disk tasarrufu
 
 # --- 7. Veritabanı şeması --------------------------------------------------------------------
@@ -215,4 +222,5 @@ Write-Host ''
 Yaz 'Kurulum tamam. Sıradaki adımlar (docs/windows-kurulum.md):'
 Write-Host "  1) DNS: futbol → bu sunucunun IP'si (A kaydı)"
 Write-Host "  2) Caddy: powershell -ExecutionPolicy Bypass -File `"$PSScriptRoot\caddy-ekle.ps1`""
-Write-Host "  3) Yönetici: powershell -ExecutionPolicy Bypass -File `"$PSScriptRoot\futbol.ps1`" yonetici eposta@adres `"Ad Soyad`""
+Write-Host "  3) Tahminler (veri anahtarı futbol.env'e yazıldıktan sonra): futbol.ps1 tahmin-hazirla"
+Write-Host "  4) Yönetici: powershell -ExecutionPolicy Bypass -File `"$PSScriptRoot\futbol.ps1`" yonetici eposta@adres `"Ad Soyad`""
