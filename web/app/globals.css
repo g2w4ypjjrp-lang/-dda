@@ -20,14 +20,14 @@
   --mi-muted: #7d8590;
   --mi-gold: #c9ab6e;
   --mi-gold-soft: rgba(201, 171, 110, 0.12);
-  --mi-cobalt: #5b84ff;
-  --mi-cobalt-soft: rgba(91, 132, 255, 0.14);
+  --mi-cobalt: #6a8fff;
+  --mi-cobalt-soft: rgba(106, 143, 255, 0.14);
   --mi-teal: #4fb6a8;
   --mi-teal-soft: rgba(79, 182, 168, 0.14);
   --mi-amber: #e0a84f;
   --mi-amber-soft: rgba(224, 168, 79, 0.14);
-  --mi-red: #e2645a;
-  --mi-red-soft: rgba(226, 100, 90, 0.14);
+  --mi-red: #e57269;
+  --mi-red-soft: rgba(229, 114, 105, 0.14);
   --mi-home: #5b84ff;
   --mi-draw: #8a93a0;
   --mi-away: #c9ab6e;
@@ -246,4 +246,11 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Erişilebilirlik (WCAG AA): vurgu tonlu zeminlerde (seçili durum, okunmamış satır, düzenleme
+   çubuğu) soluk metin kontrastı yetmez; bu kapsayıcılarda soluk metin ikincil metin rengine çıkar.
+   Yeni vurgu tonlu kapsayıcıya "tone-highlight" sınıfı ekleyin (e2e/a11y denetler). */
+.tone-highlight .text-muted {
+  color: var(--mi-text-2);
 }

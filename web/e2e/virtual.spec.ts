@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { grantPlan } from "./support";
+import { expectAccessible } from "./a11y";
 
 const PASSWORD = "E2e-Guclu-Parola-2026";
 
@@ -48,4 +49,7 @@ test("sanal portföy: aç → kupon → sanal bilet → bakiye ve geçmiş", asy
   await expect(page.getByText("9.900,00 SB").first()).toBeVisible();
   await expect(page.getByText("Bekliyor").first()).toBeVisible();
   await expect(page.getByText(/gerçek para değildir/).first()).toBeVisible();
+  await expectAccessible(page, "/sanal (açık portföy)");
+  await page.goto("/kuponlar");
+  await expectAccessible(page, "/kuponlar (PRO)");
 });

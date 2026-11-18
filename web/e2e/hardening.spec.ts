@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { sql } from "./support";
 import { freshTotp } from "./totp";
+import { expectAccessible } from "./a11y";
 
 const PASSWORD = "E2e-Guclu-Parola-2026";
 const used = new Set<number>();
@@ -79,6 +80,15 @@ test("yönetim: başka yöneticinin talebini onayla → rol atanır; kuralı kap
     await expect(page.getByRole("cell", { name: new RegExp(`mi-e2e-${stamp}`) })).toBeVisible();
     await expect(page.getByText("Geri yüklendi, sağlam")).toBeVisible();
     await expect(page.getByText(/61 tablo · şema 0012 · denetim zinciri sağlam/)).toBeVisible();
+
+    // Erişilebilirlik: tüm yönetim modülleri (SUPER_ADMIN her birini görür).
+    for (const p of ["/yonetim", "/yonetim/aksiyon", "/yonetim/onaylar", "/yonetim/veri", "/yonetim/modeller", "/yonetim/kuponlar",
+      "/yonetim/sanal", "/yonetim/abonelikler", "/yonetim/finans", "/yonetim/kullanicilar", "/yonetim/roller", "/yonetim/guvenlik",
+      "/yonetim/denetim", "/yonetim/veri-gezgini", "/yonetim/sistem", "/yonetim/yedekler", "/yonetim/bayraklar", "/yonetim/tasarim", "/yonetim/icerik"]) {
+      await page.goto(p);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expectAccessible(page, p);
+    }
   } finally {
     sql("UPDATE feature_flags SET enabled = false WHERE key = 'dual_control'");
     sql("UPDATE approval_requests SET status = 'cancelled', decided_at = now(), decided_by = requested_by WHERE status = 'pending'");

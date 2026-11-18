@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from mi_api import audit
 from mi_api.context import DbDep, MetaDep, Principal, ServicesDep, require_permission
+from mi_api.design import contrast
 from mi_api.design.defaults import ORDER
 from mi_api.design.models import DesignSettings, DesignVersion
 from mi_api.design.schema import DesignConfig
@@ -68,6 +69,8 @@ def version_view(v: DesignVersion) -> dict[str, Any]:
         "updated_at": v.updated_at.isoformat(),
         "published_at": v.published_at.isoformat() if v.published_at else None,
         "config": v.config,
+        # WCAG AA kontrast sorunları: taslakta uyarı, yayında engel.
+        "contrast_issues": contrast.issues(v.config.get("colors", {})),
     }
 
 
@@ -307,6 +310,14 @@ def create_design_router() -> APIRouter:
             select(func.pg_advisory_xact_lock(func.hashtext(f"design:{v.design_key}")))
         )
         validate_config(v.config)
+        bad = contrast.issues(v.config.get("colors", {}))
+        if bad:
+            raise ApiError(
+                422,
+                "contrast_insufficient",
+                "Erişilebilirlik: renk kontrastı yetersiz, tasarım yayımlanamaz — "
+                + "; ".join(i["message"] for i in bad[:5]),
+            )
         if body.note:
             v.note = body.note
         previous = await _publish(db, v, admin, services.clock())
@@ -339,6 +350,14 @@ def create_design_router() -> APIRouter:
             )
         if source.status == "published":
             raise ApiError(409, "already_current", "Bu sürüm zaten yayında")
+        bad = contrast.issues(source.config.get("colors", {}))
+        if bad:
+            raise ApiError(
+                422,
+                "contrast_insufficient",
+                "Bu sürümün renk kontrastı erişilebilirlik eşiğinin altında; geri dönülemez — "
+                + "; ".join(i["message"] for i in bad[:3]),
+            )
         key = source.design_key
         await db.execute(select(func.pg_advisory_xact_lock(func.hashtext(f"design:{key}"))))
         open_draft = (

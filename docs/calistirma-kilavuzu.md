@@ -150,8 +150,21 @@ zincirin kırıldığı ilk kaydı gösterir.
 
 ## 9. Anahtar yönetimi
 
-* `MI_SECRET_KEK` yöneticilerin MFA sırlarını şifreler: kaybolursa MFA'lar yeniden kurulmalıdır;
-  değiştirmek için tüm sırların yeniden şifrelenmesi gerekir (henüz araç yok — yapılacaklar listesinde).
+* `MI_SECRET_KEK` kullanıcı ve yöneticilerin MFA sırlarını şifreler; kaybolursa MFA'lar yeniden
+  kurulmalıdır. **Döndürme** (yılda bir veya sızıntı şüphesinde), bakım penceresinde:
+
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env.prod stop api worker beat web
+  export MI_NEW_SECRET_KEK="$(python3 -c 'import base64,os;print(base64.b64encode(os.urandom(32)).decode())')"
+  docker compose ... run --rm -e MI_NEW_SECRET_KEK api mi-admin rotate-kek --dry-run   # yalnızca denetim
+  docker compose ... run --rm -e MI_NEW_SECRET_KEK api mi-admin rotate-kek
+  # .env.prod: MI_SECRET_KEK=<yeni değer>  (gizli bilgi deposunda da güncelleyin)
+  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+  ```
+
+  Tüm sırlar tek işlemde taşınır; tek bir sır bile çözülemezse hiçbir şey değişmez. Tekrar
+  çalıştırmak güvenlidir (taşınmış sırlar atlanır). Yeni anahtarı yüklemeyen bir süreç MFA
+  girişinde 500 değil "şu anda yapılamıyor" (503) döner ve günlüğe anahtar uyuşmazlığı yazar.
 * `MI_LICENSE_PEPPER` değişirse üretilmiş lisans anahtarları geçersizleşir.
 * `MI_METRICS_TOKEN` istendiği zaman değiştirilebilir (Prometheus jeton dosyasıyla birlikte).
 * Ödeme sağlayıcı anahtarları yalnızca sağlayıcı panelinde yenilenir; canlı mod M-G5 onayı ister.

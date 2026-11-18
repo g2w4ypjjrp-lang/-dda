@@ -80,9 +80,9 @@ async def test_draft_publish_rollback_and_default(
         ).status_code == 409
         cfg = draft["config"]
         cfg["shape"]["radius"] = 0
-        cfg["colors"]["accent"] = "#e30613"
+        cfg["colors"]["accent"] = "#a8101a"
         r = await c.put(f"/admin/v1/design/versions/{draft['id']}", json={"config": cfg})
-        assert r.status_code == 200 and r.json()["config"]["colors"]["accent"] == "#e30613"
+        assert r.status_code == 200 and r.json()["config"]["colors"]["accent"] == "#a8101a"
         bad = {**cfg, "colors": {**cfg["colors"], "accent": "javascript:alert(1)"}}
         r = await c.put(f"/admin/v1/design/versions/{draft['id']}", json={"config": bad})
         assert r.status_code == 422 and r.json()["code"] == "invalid_design"
@@ -173,3 +173,47 @@ async def test_design_publish_requires_fresh_reauth(
         support = await make_staff(app, sql, clock, "destek@ornek.com", "SUPPORT")
         async with use(support.client) as s:
             assert (await s.get("/admin/v1/design")).status_code == 403
+
+
+def test_defaults_meet_wcag_aa_contrast() -> None:
+    """Faz 10 axe bulgusu: her metin rengi her yüzeyde ve rozet zemininde en az 4,5:1."""
+    from mi_api.design import contrast
+
+    for key in ORDER:
+        assert contrast.issues(DEFAULTS[key]["colors"]) == [], key
+    assert round(contrast.ratio("#000000", "#ffffff"), 1) == 21.0
+    assert contrast.mix("#ff0000", "#ffffff", 0.15) == "#ffd9d9"
+
+
+async def test_low_contrast_design_cannot_be_published_or_restored(
+    app: Any, sql: psycopg.Connection[Any], clock: Clock
+) -> None:
+    admin = await make_staff(app, sql, clock, "admin@ornek.com", "ADMIN")
+    async with use(admin.client) as a:
+        draft = (await a.post("/admin/v1/design/swiss-intelligence/drafts", json={})).json()
+        assert draft["contrast_issues"] == []
+        cfg = copy.deepcopy(draft["config"])
+        cfg["colors"]["muted"] = "#c8c8c8"  # açık zeminde soluk gri: ~1,6:1
+        r = await a.put(f"/admin/v1/design/versions/{draft['id']}", json={"config": cfg})
+        assert r.status_code == 200  # taslak kaydedilir, uyarı görünür
+        issues = r.json()["contrast_issues"]
+        assert issues and {i["foreground"] for i in issues} == {"muted"}
+        assert "en az 4.5:1" in issues[0]["message"]
+        r = await a.post(f"/admin/v1/design/versions/{draft['id']}/publish", json={"confirm": True})
+        assert r.status_code == 422 and r.json()["code"] == "contrast_insufficient"
+        assert sql.execute(
+            "SELECT status FROM design_versions WHERE id = %s", (draft["id"],)
+        ).fetchone() == ("draft",)
+        await a.post(f"/admin/v1/design/versions/{draft['id']}/discard")
+
+        # Eşiğin altındaki eski (arşivlenmiş) bir sürüme geri dönülemez.
+        old = copy.deepcopy(draft["config"])
+        old["colors"]["muted"] = "#c8c8c8"
+        row = sql.execute(
+            "INSERT INTO design_versions (design_key, version, status, config, published_at)"
+            " VALUES ('swiss-intelligence', 99, 'archived', %s, now()) RETURNING id",
+            (psycopg.types.json.Jsonb(old),),
+        ).fetchone()
+        assert row is not None
+        r = await a.post(f"/admin/v1/design/versions/{row[0]}/rollback", json={"confirm": True})
+        assert r.status_code == 422 and r.json()["code"] == "contrast_insufficient"

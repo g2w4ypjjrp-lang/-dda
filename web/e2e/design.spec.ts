@@ -66,7 +66,12 @@ test("Design Studio: taslak → düzenle → yayınla → geçmiş → geri al",
   // Taslak → vurgu rengini değiştir → kaydet → yayınla (onay).
   await swiss.getByRole("button", { name: "Düzenle" }).click();
   await page.getByRole("button", { name: "Taslak oluştur" }).click();
-  await page.getByRole("textbox", { name: "Vurgu", exact: true }).fill("#0055ff");
+  // Erişilebilirlik kapısı: düşük kontrastlı vurgu uyarı verir ve yayını kapatır.
+  await page.getByRole("textbox", { name: "Vurgu", exact: true }).fill("#ffcc00");
+  await expect(page.getByTestId("contrast-issues")).toContainText("WCAG AA kontrastının altında");
+  await expect(page.getByRole("button", { name: "Yayınla" })).toBeDisabled();
+  await page.getByRole("textbox", { name: "Vurgu", exact: true }).fill("#0047d6");
+  await expect(page.getByTestId("contrast-issues")).toHaveCount(0);
   await page.getByLabel("Ana sayfa", { exact: true }).selectOption("institutional");
   await page.getByRole("button", { name: "Taslağı kaydet" }).click();
   await expect(page.getByText("Taslak kaydedildi.")).toBeVisible();
@@ -76,7 +81,7 @@ test("Design Studio: taslak → düzenle → yayınla → geçmiş → geri al",
 
   const pub = await (await page.request.get("/v1/design")).json();
   expect(pub.designs["swiss-intelligence"].version).toBe(2);
-  expect(pub.designs["swiss-intelligence"].config.colors.accent).toBe("#0055ff");
+  expect(pub.designs["swiss-intelligence"].config.colors.accent).toBe("#0047d6");
 
   // Geçmiş → v1'e dön (yeni sürüm v3 olarak yayımlanır).
   await swiss.getByRole("button", { name: "Geçmiş" }).click();
@@ -84,5 +89,5 @@ test("Design Studio: taslak → düzenle → yayınla → geçmiş → geri al",
   await page.getByRole("listitem").filter({ hasText: "v1" }).getByRole("button", { name: "Bu sürüme dön" }).click();
   await expect(swiss.getByText("v3 yayında")).toBeVisible();
   const after = await (await page.request.get("/v1/design")).json();
-  expect(after.designs["swiss-intelligence"].config.colors.accent).toBe("#d52b1e");
+  expect(after.designs["swiss-intelligence"].config.colors.accent).toBe("#b22419");
 });

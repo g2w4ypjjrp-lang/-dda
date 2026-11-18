@@ -28,11 +28,24 @@ export function SignatureMark({ size = 30 }: { size?: number }) {
   );
 }
 
+/**
+ * Görünen logo yardımcı teknolojilerden gizlenir; ekran okuyucu her varyantta aynı adı duyar.
+ * (Erişilebilirlik: görünen metin ile erişilebilir ad uyuşmazlığı — axe label-content-name-mismatch.)
+ */
 export function Logo({ compact = false }: { compact?: boolean }) {
+  return (
+    <>
+      <span className="sr-only">Match Intelligence AI</span>
+      <span aria-hidden className="contents"><LogoVisual compact={compact} /></span>
+    </>
+  );
+}
+
+function LogoVisual({ compact = false }: { compact?: boolean }) {
   const { logo } = useLayout();
   if (logo === "wordmark") {
     return (
-      <span className="inline-flex items-baseline gap-1.5 text-text" aria-label="Match Intelligence AI">
+      <span className="inline-flex items-baseline gap-1.5 text-text">
         <span className="font-heading text-[15px] font-semibold tracking-[-0.01em]">Match Intelligence</span>
         <span className="size-1.5 translate-y-[-2px] rounded-full bg-gold" aria-hidden />
         {!compact && <span className="hidden text-[11px] font-medium tracking-[0.18em] text-muted sm:inline">AI</span>}
@@ -41,7 +54,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   }
   if (logo === "terminal") {
     return (
-      <span className="inline-flex items-center gap-2 font-mono text-[13px] text-text" aria-label="Match Intelligence AI">
+      <span className="inline-flex items-center gap-2 font-mono text-[13px] text-text">
         <span className="rounded-[3px] bg-gold px-1.5 py-0.5 text-[11px] font-semibold text-accent-text">MI</span>
         <span className="tracking-[0.08em]">MATCH<span className="text-gold">/</span>INTEL</span>
         {!compact && <span className="hidden text-muted sm:inline">v.ai</span>}
@@ -50,7 +63,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   }
   if (logo === "serif") {
     return (
-      <span className="inline-flex flex-col leading-none text-text" aria-label="Match Intelligence AI">
+      <span className="inline-flex flex-col leading-none text-text">
         <span className="font-heading text-[22px] font-bold italic tracking-[-0.02em]">Match Intelligence</span>
         {!compact && <span className="mt-1 text-[9.5px] font-semibold uppercase tracking-[0.34em] text-gold">Futbol · Analiz · AI</span>}
       </span>
@@ -58,7 +71,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   }
   if (logo === "signature") {
     return (
-      <span className="inline-flex items-center gap-2.5 text-text" aria-label="Match Intelligence AI">
+      <span className="inline-flex items-center gap-2.5 text-text">
         <SignatureMark />
         {!compact && (
           <span className="leading-none">

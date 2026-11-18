@@ -148,7 +148,7 @@ function Topbar({ children }: { children: ReactNode }) {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-(--mi-page) items-center gap-4 px-4 sm:gap-8 sm:px-6">
-          <Link href="/" className="shrink-0" aria-label="Match Intelligence AI ana sayfa"><Logo /></Link>
+          <Link href="/" className="shrink-0"><Logo /><span className="sr-only"> — ana sayfa</span></Link>
           <nav aria-label="Ana menü" className="hidden items-center gap-1 md:flex"><NavLinks /></nav>
           <div className="ml-auto hidden md:block"><Account /></div>
           <div className="ml-auto flex items-center gap-2 md:hidden">
@@ -171,7 +171,7 @@ function Sidebar({ children }: { children: ReactNode }) {
     <div className="lg:grid lg:grid-cols-[var(--mi-sidebar)_1fr]">
       <aside className="sticky top-0 z-30 border-b border-line bg-bg-elevated lg:h-dvh lg:border-b-0 lg:border-r">
         <div className="flex h-16 items-center justify-between px-5 lg:h-20">
-          <Link href="/" aria-label="Match Intelligence AI ana sayfa"><Logo /></Link>
+          <Link href="/"><Logo /><span className="sr-only"> — ana sayfa</span></Link>
           <div className="flex items-center gap-2 lg:hidden">
             <div className="hidden md:block"><Account /></div>
             {mobileNav === "drawer" ? <MobileDrawerButton /> : <span className="md:hidden"><Account /></span>}
@@ -217,7 +217,7 @@ function Terminal({ children }: { children: ReactNode }) {
     <>
       <header className="sticky top-0 z-30 bg-bg" style={{ ["--mi-header" as string]: "44px" }}>
         <div className="flex h-11 items-center gap-4 border-b border-line px-3 sm:px-4">
-          <Link href="/" aria-label="Match Intelligence AI ana sayfa"><Logo /></Link>
+          <Link href="/"><Logo /><span className="sr-only"> — ana sayfa</span></Link>
           <nav aria-label="Ana menü" className="hidden items-center gap-px md:flex"><NavLinks /></nav>
           <div className="ml-auto flex items-center gap-2">
             <div className={cx(mobileNav === "drawer" && "hidden md:block")}><Account /></div>
@@ -246,7 +246,7 @@ function Masthead({ children }: { children: ReactNode }) {
           <div className="md:hidden">{mobileNav === "drawer" ? <MobileDrawerButton /> : <Account />}</div>
         </div>
         <div className="mx-auto flex max-w-(--mi-page) justify-center border-y border-line px-4 py-5 sm:px-6">
-          <Link href="/" aria-label="Match Intelligence AI ana sayfa"><Logo /></Link>
+          <Link href="/"><Logo /><span className="sr-only"> — ana sayfa</span></Link>
         </div>
         <nav aria-label="Ana menü" className="mx-auto hidden max-w-(--mi-page) justify-center gap-2 px-4 md:flex"><NavLinks /></nav>
         {mobileNav === "top" && <MobileTopTabs />}

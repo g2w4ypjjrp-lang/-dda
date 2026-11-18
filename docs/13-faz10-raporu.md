@@ -139,8 +139,9 @@ için kapsam dışı.
 * `.env.prod.example`: tüm üretim değişkenleri; gizli dosyalar `.gitignore`'da.
 * Doğrulama: `docker compose config` (tüm profiller), `caddy validate`, `promtool check rules`
   (üçü CI'a da eklendi). API imajı bu ortamda derlendi (`/backups` dizini `mi` kullanıcısına ait,
-  `pg_dump 16.16`). **Web imajı burada derlenemedi:** Docker Hub anonim çekme sınırı (HTTP 429)
-  `node:22-slim` temel imajını engelledi; web Dockerfile bu fazda değişmedi ve CI'da derleniyor.
+  `pg_dump 16.16`). Web imajı da derlendi (ilk denemede Docker Hub çekme sınırına takılmıştı) ve
+  salt okunur kök dosya sistemiyle, `uid 10001` kullanıcısıyla açılıp güvenlik başlıklarıyla yanıt
+  verdiği doğrulandı.
 * **Yapılmadı:** üretim yığınının bir sunucuda uçtan uca ayağa kaldırılması (TLS sertifikası gerçek
   alan adı ister) — M-G3 sonrası kılavuzdaki "İlk gün denetim listesi" ile yapılacak.
 
@@ -148,10 +149,10 @@ için kapsam dışı.
 
 | Takım | Sonuç |
 |---|---|
-| API (pytest, gerçek PostgreSQL 16 + Redis 7) | **196 / 196** (Faz 10 ile +11: dört göz 3, yedek 2, metrik 1, güvenlik taraması 5) |
+| API (pytest, gerçek PostgreSQL 16 + Redis 7) | **200 / 200** (Faz 10 ile +15: dört göz 3, yedek 2, metrik 1, güvenlik taraması 5, renk kontrastı 2, anahtar döndürme 2) |
 | ML (pytest) | **37 / 37** |
 | Web tip denetimi + üretim derlemesi | Temiz |
-| E2E (Playwright, gerçek API + DB) | **15 / 15**, atlanan yok (yeni: dört göz + yedekler akışı) |
+| E2E (Playwright, gerçek API + DB) | **17 / 17**, atlanan yok (dört göz + yedekler akışı; erişilebilirlik: herkese açık sayfalar, 10 tasarım, oturumlu sayfalar, 19 yönetim modülü) |
 | Görsel karşılaştırma (isteğe bağlı) | **12 / 12** (6 sayfa × masaüstü/mobil) |
 | ruff, ruff format, mypy (API, ML) | Temiz |
 
@@ -161,7 +162,52 @@ Türkiye saatiyle 22:00'den sonra bu maçlar ertesi güne kaydığı için "bug�
 yerleştiriyor; ana sayfa testi bugün ve yarına bakıyor. CI hangi saatte koşarsa koşsun aynı testler
 çalışır.
 
-## 10. Açık kalanlar (dürüst liste)
+## 10. Ek çalışma: erişilebilirlik, Lighthouse, anahtar döndürme
+
+### Erişilebilirlik (axe, WCAG 2.1 AA)
+
+`web/e2e/a11y.spec.ts` + akış testlerinin içinde: 14 herkese açık sayfa, **10 tasarımın her biri**
+(5 sayfa), oturumlu kullanıcı sayfaları (panel, bildirimler, sanal portföy, kupon merkezi) ve
+**19 yönetim modülünün tamamı**. Sıfır ihlal hedefi; her E2E koşusunda denetleniyor.
+
+Bulunan ve düzeltilenler:
+
+| Bulgu | Etki | Düzeltme |
+|---|---|---|
+| 10 tasarımdan 6'sında soluk metin 4,5:1 eşiğinin altında (3,1–4,4) | Ciddi | Varsayılan renkler düzeltildi; genişletilmiş denetimle (her metin rengi × her yüzey + rozet zeminleri) 9 tasarımda renk ayarı |
+| Kontrast kuralı yoktu: Design Studio'da erişilemez renk yayımlanabiliyordu | Ciddi | `design/contrast.py`: eşik altı tasarım **yayımlanamaz** ve böyle bir eski sürüme **geri dönülemez** (422); editörde canlı uyarı ve "Yayınla" kapalı |
+| Yayındaki sürümler değiştirilemez | — | Geçiş 0013: düzeltme yeni sürüm olarak yayımlanır, eski sürüm arşivde; yöneticinin değiştirdiği renge dokunulmaz (eski durumdaki veritabanında doğrulandı) |
+| Vurgu tonlu zeminde (seçili kart, okunmamış satır) soluk metin | Ciddi | `tone-highlight` sınıfı: bu zeminlerde soluk metin ikincil metne çıkar |
+| Logo bağlantısının adı görünen metinle uyuşmuyordu (her sayfada) | Ciddi | Görsel logo gizlendi, tek tip okunur ad |
+| Bildirim zilinde görünen sayı adın parçası değildi | Ciddi | Ad görünen içerikten oluşuyor ("Bildirimler 1 okunmamış") |
+| Metin içi bağlantı yalnızca renkle ayırt ediliyordu | Ciddi | Altı çizili |
+| Maç sayfasında `h1` yoktu; yönetim girişinde ana bölge (`main`) yoktu | Orta | Eklendi |
+
+### Lighthouse (12.8, mobil, yavaş 4G + 4× CPU benzetimi, yerel üretim derlemesi)
+
+| Sayfa | Performans | Erişilebilirlik | En iyi uygulamalar | SEO | LCP | TBT |
+|---|---|---|---|---|---|---|
+| Ana sayfa | 76 | 100 | 96 | 100 | 4,0 sn | 420 ms |
+| Maç Merkezi | 83 | 100 | 96 | 100 | 3,7 sn | 270 ms |
+| Maç detayı | 86 | 100 | 96 | 100 | 3,1 sn | 330 ms |
+| Paketler | 80 | 100 | 96 | 100 | 3,9 sn | 320 ms |
+| Giriş | 90 | 100 | 93 | 100 | 2,7 sn | 270 ms |
+
+* **Performans zayıf yanı:** sayfa verisi tarayıcıda, JavaScript yüklendikten sonra çekiliyor; en
+  büyük içerik (LCP) bu yüzden geç çiziliyor (hedef ≤ 2,5 sn). Önerilen iyileştirme: ana sayfa ve
+  Maç Merkezi verisini sunucuda önceden çekip sayfayla göndermek (React Query hydration). Bu
+  çalışmada yapılmadı.
+* En iyi uygulamalarda puan kaybı: oturumsuz ziyarette `/v1/auth/me` 401 döndüğü için tarayıcı
+  konsolunda hata görünüyor; giriş sayfasında bir CSP uyarısı (ayrıntısız) kaydedildi.
+
+### Gizli anahtar döndürme
+
+`mi-admin rotate-kek [--dry-run]` (`mi_api/ops/keys.py`): MFA sırları tek işlemde eski anahtardan
+yenisine taşınır; tek bir sır bile çözülemezse hiçbir şey değişmez; tekrar çalıştırmak güvenli.
+Yeni anahtar ortam değişkeniyle verilir. Ayrıca bulunan sorun: sunucu yanlış anahtarla çalışırsa MFA
+girişi **500** veriyordu; artık nedenini günlüğe yazan **503** dönüyor. Adımlar kılavuzda (§9).
+
+## 11. Açık kalanlar (dürüst liste)
 
 | Konu | Durum | Bekleyen |
 |---|---|---|
@@ -172,7 +218,7 @@ yerleştiriyor; ana sayfa testi bugün ve yarına bakıyor. CI hangi saatte koş
 | Canlı ödeme | Test modu | **M-G5** |
 | E-posta ve push gönderimi | Kuyruğa yazılıyor, gönderilmiyor | **M-G6** |
 | Üretim kapasite ölçümü | Yalnızca yerel ölçüm | Dağıtım sonrası |
-| Lighthouse ve axe erişilebilirlik taraması | Yapılmadı | Sonraki çalışma |
-| `MI_SECRET_KEK` döndürme aracı | Yok (kılavuzda belirtildi) | Sonraki çalışma |
 | Maliyet metrikleri (API/sunucu) | Bağlı değil; panel "veri yok" diyor | Dağıtım sonrası |
 | İlk yarı piyasaları | Demo verisinde kalibrasyon kapısını geçmiyor (eşik gevşetilmedi) | Gerçek veri (M-G1) |
+| Mobil sayfa performansı (LCP 2,7–4,0 sn) | Ölçüldü; sunucu tarafı veri ön yükleme önerildi | Sonraki çalışma |
+| Oturumsuz `/v1/auth/me` 401'inin konsolda hata görünmesi | Ölçüldü | Sonraki çalışma |

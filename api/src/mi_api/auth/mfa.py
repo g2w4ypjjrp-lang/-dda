@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+
+from cryptography.exceptions import InvalidTag
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +12,8 @@ from mi_api.context import Services
 from mi_api.errors import ApiError
 from mi_api.models import RecoveryCode, User
 from mi_api.security import SecretBox, recovery_digest, verify_totp
+
+log = logging.getLogger("mi_api.auth")
 
 
 def mfa_aad(user: User) -> str:
@@ -32,7 +37,17 @@ async def check_mfa(db: AsyncSession, services: Services, user: User, code: str)
     box = require_box(services)
     cleaned = "".join(code.split())
     if cleaned.isdigit():
-        secret = box.open(user.mfa_secret_enc, mfa_aad(user))
+        try:
+            secret = box.open(user.mfa_secret_enc, mfa_aad(user))
+        except InvalidTag as exc:
+            # Sunucu anahtarı (MI_SECRET_KEK) sırrı şifreleyen anahtar değil: yapılandırma hatası
+            # (ör. döndürmeden sonra yeniden başlatılmamış süreç). Kod "yanlış" sayılmaz.
+            log.error("MFA sırrı çözülemedi: MI_SECRET_KEK uyuşmuyor (kullanıcı %s)", user.id)
+            raise ApiError(
+                503,
+                "mfa_unavailable",
+                "İki adımlı doğrulama şu anda yapılamıyor; lütfen biraz sonra deneyin",
+            ) from exc
         counter = verify_totp(
             secret, cleaned, last_counter=user.mfa_last_counter, now=services.clock().timestamp()
         )

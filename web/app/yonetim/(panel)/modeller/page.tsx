@@ -36,7 +36,7 @@ function DetailPanel({ id }: { id: number }) {
         <p className="mb-2 text-[11.5px] text-muted">{d.metrics.periods?.test ? `${fmtDateTime(d.metrics.periods.test.from)} – ${fmtDateTime(d.metrics.periods.test.to)}` : ""}</p>
         <Table head={["Model", "n", "Log loss", "Brier", "ECE", "İsabet"]} minWidth={460}>
           {Object.entries(d.metrics.test).map(([name, m]) => (
-            <tr key={name} className={name === "ensemble" ? "bg-gold-soft/40" : undefined}>
+            <tr key={name} className={name === "ensemble" ? "tone-highlight bg-gold-soft/40" : undefined}>
               <td className="px-4 py-2 font-medium">{name}{d.components[name] !== undefined ? ` · ${pct(d.components[name])}` : d.excluded[name] ? " · dışlandı" : ""}</td>
               <td className="num px-4 py-2">{m.n}</td>
               <td className="num px-4 py-2">{num(m.log_loss, 4)}</td>

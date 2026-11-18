@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [k]: e.target.value });
   return (
-    <div className="px-4">
+    <main className="px-4">
       <AuthShell title="Yönetim paneli" subtitle="Yalnızca yetkili personel. Her giriş ve işlem denetim kaydına yazılır.">
         <form
           className="space-y-4"
@@ -46,6 +46,6 @@ export default function AdminLoginPage() {
           <Button type="submit" className="w-full" loading={busy}>Giriş yap</Button>
         </form>
       </AuthShell>
-    </div>
+    </main>
   );
 }

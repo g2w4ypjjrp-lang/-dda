@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageTitle, can, useAdmin, useGuard } from "@/components/admin";
 import { DesignSwatch } from "@/components/DesignSwatch";
 import { Badge, Button, Card, CardHeader, ErrorState, FormError, Input, Notice, Skeleton, cx } from "@/components/ui";
+import { contrastIssues } from "@/lib/contrast";
 import { api, post, put } from "@/lib/api";
 import type { DesignConfig } from "@/lib/design";
 import { fmtDateTime, trToday } from "@/lib/format";
@@ -212,6 +213,7 @@ function Editor({ item, onClose }: { item: Item; onClose: () => void }) {
   }, [config]);
   useEffect(() => { const t = setTimeout(pushPreview, 120); return () => clearTimeout(t); }, [pushPreview]);
 
+  const issues = config ? contrastIssues(config.colors as unknown as Record<string, string>) : [];
   const base = item.published?.config;
   const changed = useMemo(() => {
     if (!config || !base) return 0;
@@ -306,11 +308,17 @@ function Editor({ item, onClose }: { item: Item; onClose: () => void }) {
                 <Field label="Mobil navigasyon"><Select label="Mobil navigasyon" value={config.mobile.nav} options={["tabs", "drawer", "top"] as const} onChange={(v) => upd("mobile", "nav", v)} /></Field>
               </section>
               <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-line bg-bg p-4">
+                {issues.length > 0 && (
+                  <div role="alert" data-testid="contrast-issues" className="max-h-32 overflow-y-auto rounded-ctl border border-red/40 bg-red-soft p-2 text-[11.5px] text-text">
+                    <div className="font-semibold">Erişilebilirlik: {issues.length} renk çifti WCAG AA kontrastının altında; bu hâliyle yayımlanamaz.</div>
+                    <ul className="mt-1 list-disc pl-4">{issues.slice(0, 6).map((i) => <li key={`${i.foreground}-${i.background}`}>{i.message}</li>)}</ul>
+                  </div>
+                )}
                 <FormError error={save.error ?? publish.error ?? discard.error} />
                 {save.isSuccess && !save.isPending && <p className="text-[12px] text-teal">Taslak kaydedildi.</p>}
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="secondary" disabled={!editable} loading={save.isPending} onClick={() => save.mutate()}>Taslağı kaydet</Button>
-                  {can(me, "design.publish") && <Button size="sm" onClick={() => setConfirmOpen(true)}><Upload className="size-4" aria-hidden />Yayınla</Button>}
+                  {can(me, "design.publish") && <Button size="sm" disabled={issues.length > 0} onClick={() => setConfirmOpen(true)}><Upload className="size-4" aria-hidden />Yayınla</Button>}
                   <Button size="sm" variant="ghost" disabled={!editable} loading={discard.isPending} onClick={() => discard.mutate()}>Taslağı at</Button>
                 </div>
                 <p className="text-[11px] text-muted">Önizleme değişiklikleri anında gösterir; kaydedilmeden yayına çıkmaz.</p>

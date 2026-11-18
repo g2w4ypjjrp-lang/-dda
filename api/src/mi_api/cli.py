@@ -14,6 +14,8 @@
   yükleyerek doğrular (``mi_api.ops.backup``).
 * ``backup-verify [--id N] [--no-restore]``: bir yedeği (varsayılan: en son) yeniden doğrular.
 * ``restore FILE --target-url URL --yes [--overwrite-current]``: yedeği geri yükler.
+* ``rotate-kek [--dry-run]``: MFA sırlarını ``MI_SECRET_KEK``'ten ``MI_NEW_SECRET_KEK``'e taşır
+  (``mi_api.ops.keys``; API durdurulmuşken).
 """
 
 from __future__ import annotations
@@ -150,6 +152,8 @@ def main(argv: list[str] | None = None) -> None:
     rs.add_argument("--target-url", required=True)
     rs.add_argument("--yes", action="store_true", help="Hedefteki verinin silineceğini onaylıyorum")
     rs.add_argument("--overwrite-current", action="store_true")
+    rk = sub.add_parser("rotate-kek", help="MFA sırlarını yeni anahtarla yeniden şifrele")
+    rk.add_argument("--dry-run", action="store_true", help="Yalnızca denetle, yazma")
     args = parser.parse_args(argv)
     settings = Settings()
 
@@ -173,6 +177,12 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("--days 1 ile 3660 arasında olmalı")
         end = asyncio.run(grant_plan(settings, args.email, args.plan, args.days))
         print(f"{args.plan} verildi; bitiş: {end}")
+    elif args.command == "rotate-kek":
+        print(
+            json.dumps(asyncio.run(rotate_kek(settings, dry_run=args.dry_run)), ensure_ascii=False)
+        )
+        if not args.dry_run:
+            print("Şimdi MI_SECRET_KEK'i yeni değerle güncelleyin ve API/işçiyi yeniden başlatın.")
     elif args.command in ("backup", "backup-verify", "restore"):
         _backup_command(settings, args)
     elif args.command == "football-sync":
@@ -194,6 +204,29 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if result["status"] == "failed":
             raise SystemExit(1)
+
+
+async def rotate_kek(settings: Settings, *, dry_run: bool) -> dict[str, int]:
+    import os
+
+    from mi_api.ops import keys
+
+    try:
+        if settings.secret_kek is None:
+            raise keys.KeyRotationError("MI_SECRET_KEK ayarlı değil")
+        new_value = os.environ.get("MI_NEW_SECRET_KEK")
+        if not new_value:
+            raise keys.KeyRotationError("MI_NEW_SECRET_KEK ortam değişkeni gerekli")
+        old = keys.decode_kek(settings.secret_kek.get_secret_value(), "MI_SECRET_KEK")
+        new = keys.decode_kek(new_value, "MI_NEW_SECRET_KEK")
+        db = Database(settings.database_url.get_secret_value(), pool_size=1)
+        try:
+            async with db.session() as session:
+                return await keys.rotate(session, old, new, dry_run=dry_run)
+        finally:
+            await db.close()
+    except keys.KeyRotationError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _backup_command(settings: Settings, args: argparse.Namespace) -> None:

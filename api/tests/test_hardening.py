@@ -19,6 +19,7 @@ from conftest import (
     signup_and_login,
     use,
 )
+from mi_api.migrate import head_revision
 from mi_api.ops import backup
 from test_billing import buyer, one, set_price, sim_app, sim_order
 
@@ -237,7 +238,11 @@ async def test_backup_verify_prune_and_restore(
     v = first.detail["verify"]
     # Gerçek geri yükleme: geçici veritabanında şema sürümü, tablolar ve denetim zinciri denetlendi.
     assert v["ok"] and v["restore_tested"] and v["restore_ok"] and v["audit_chain_intact"]
-    assert v["alembic_version"] == "0012" and v["tables"] > 30 and v["table_data_entries"] > 30
+    assert (
+        v["alembic_version"] == head_revision()
+        and v["tables"] > 30
+        and v["table_data_entries"] > 30
+    )
     file = Path(first.file or "")
     assert file.exists() and (file.stat().st_mode & 0o777) == 0o600
     assert file.with_name(file.name + ".sha256").read_text().split()[0] == first.detail["sha256"]

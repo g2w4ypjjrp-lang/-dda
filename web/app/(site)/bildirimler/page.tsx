@@ -37,11 +37,11 @@ export default function NotificationsPage() {
           <CardHeader eyebrow={`${list.data?.unread ?? 0} okunmamış`} title="Gelen kutusu" action={list.data?.unread ? <Button size="sm" variant="ghost" onClick={() => read.mutate({ all: true })}>Tümünü okundu say</Button> : undefined} />
           <ul className="mt-3 divide-y divide-line border-t border-line">
             {list.isLoading ? <Skeleton className="m-5 h-24" /> : !list.data?.items.length ? <Empty title="Bildirim yok" icon={<Bell className="size-5" aria-hidden />}>Favori takımlarınızın maçları, kupon sonuçları ve hesap güvenliği burada bildirilir.</Empty> : list.data.items.map((n) => (
-              <li key={n.id} className={cx("flex gap-3 px-5 py-3.5", !n.read && "bg-gold-soft/40")}>
+              <li key={n.id} className={cx("flex gap-3 px-5 py-3.5", !n.read && "tone-highlight bg-gold-soft/40")}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-[13.5px] font-medium">{n.title}<Badge>{CAT[n.category] ?? n.category}</Badge></div>
                   <p className="mt-1 text-[12.5px] text-text-2">{n.body}</p>
-                  <div className="mt-1 text-[11px] text-muted" title={fmtDateTime(n.created_at)}>{ago(n.created_at)}{n.link && <> · <Link href={n.link} className="text-gold hover:underline" onClick={() => !n.read && read.mutate({ ids: [n.id] })}>Git</Link></>}</div>
+                  <div className="mt-1 text-[11px] text-text-2" title={fmtDateTime(n.created_at)}>{ago(n.created_at)}{n.link && <> · <Link href={n.link} className="text-gold underline underline-offset-2" onClick={() => !n.read && read.mutate({ ids: [n.id] })}>Git</Link></>}</div>
                 </div>
                 {!n.read && <Button size="sm" variant="ghost" onClick={() => read.mutate({ ids: [n.id] })}>Okundu</Button>}
               </li>

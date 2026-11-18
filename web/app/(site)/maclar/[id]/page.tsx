@@ -149,6 +149,8 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
         <ArrowLeft className="size-4" aria-hidden /> Maç Merkezi
       </Link>
 
+      {/* Sayfa başlığı ekran okuyucular için; görsel başlık aşağıdaki takım kartlarıdır. */}
+      <h1 className="sr-only">{d.home.name} – {d.away.name}, {fmtDate(d.kickoff_at)} maç analizi</h1>
       <Card className="mt-4 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg-elevated px-5 py-3 text-[12.5px] text-text-2">
           <Link href={`/ligler/${d.competition.id}`} className="font-medium hover:text-text">{d.competition.name} · {d.season.label}{d.round ? ` · ${d.round}` : ""}</Link>

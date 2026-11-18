@@ -261,7 +261,7 @@ export default function CouponCenter() {
                 <legend className="mb-2 text-[13px] font-medium text-text-2">Risk profili</legend>
                 <div className="space-y-2">
                   {PROFILES.map((p) => (
-                    <label key={p.key} className={cx("flex cursor-pointer items-center justify-between rounded-ctl border px-3.5 py-2.5 text-[13px]", profile === p.key ? "border-gold/60 bg-gold-soft" : "border-line")}>
+                    <label key={p.key} className={cx("flex cursor-pointer items-center justify-between rounded-ctl border px-3.5 py-2.5 text-[13px]", profile === p.key ? "tone-highlight border-gold/60 bg-gold-soft" : "border-line")}>
                       <span className="flex items-center gap-2.5">
                         <input type="radio" name="profile" value={p.key} checked={profile === p.key} onChange={() => setProfile(p.key)} className="accent-[var(--mi-gold)]" />
                         {p.label}

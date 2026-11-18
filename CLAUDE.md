@@ -70,6 +70,9 @@ Dört göz: kritik işlem eklerken `mi_api/ops/approvals.py` → `ACTIONS` yür�
 (202 döner; web'de `ApprovalSent`). Yedek: `mi_api/ops/backup.py` + `mi-admin backup/backup-verify/restore`.
 Yeni rota eklerken `tests/test_security_sweep.py` otomatik kapsar; herkese açık rota bilinçli olarak
 `PUBLIC` listesine eklenmeli. `/metrics` jetonla (`MI_METRICS_TOKEN`).
+Erişilebilirlik: E2E her koşuda axe ile WCAG 2.1 AA denetler (`e2e/a11y.ts` → `expectAccessible`);
+tasarım renkleri `design/contrast.py` (web: `lib/contrast.ts`) eşiğini geçmeden yayımlanamaz; vurgu
+tonlu zemine `tone-highlight` sınıfı verin. Anahtar döndürme: `mi-admin rotate-kek`.
 
 Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 dağıtım,
 M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.

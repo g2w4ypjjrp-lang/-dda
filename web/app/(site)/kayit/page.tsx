@@ -57,7 +57,7 @@ export default function RegisterPage() {
         <label className="flex items-start gap-2.5 text-[12.5px] leading-relaxed text-text-2">
           <input type="checkbox" className="mt-0.5 size-4 accent-[var(--mi-gold)]" {...form.register("accept_terms")} />
           <span>
-            18 yaşından büyük olduğumu, <Link href="/risk" className="text-gold hover:underline">risk bildirimini</Link> okuduğumu ve tahminlerin kazanç garantisi olmadığını anladığımı onaylıyorum.
+            18 yaşından büyük olduğumu, <Link href="/risk" className="text-gold underline underline-offset-2">risk bildirimini</Link> okuduğumu ve tahminlerin kazanç garantisi olmadığını anladığımı onaylıyorum.
           </span>
         </label>
         {form.formState.errors.accept_terms && <p className="text-xs text-red">{form.formState.errors.accept_terms.message}</p>}

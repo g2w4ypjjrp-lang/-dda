@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectAccessible } from "./a11y";
 
 const PASSWORD = "E2e-Guclu-Parola-2026";
 
@@ -35,16 +36,18 @@ test("panel: maçı kaydet → widget → düzenle/kaydet → bildirim zili → 
   await page.getByRole("button", { name: "Hesap özeti", exact: true }).click();
   await page.getByRole("button", { name: "Düzeni kaydet" }).click();
   await expect(page.locator('[data-widget="account"]')).toHaveCount(1);
+  await expectAccessible(page, "/panel");
 
   // Güvenlik bildirimi → zil.
   expect((await page.request.post("/v1/auth/password/change", { data: { current_password: PASSWORD, new_password: "E2e-Yeni-Parola-2027" }, headers: { Origin: origin } })).status()).toBe(200);
   await page.reload();
-  const bell = page.getByRole("button", { name: /Bildirimler \(1 okunmamış\)/ });
+  const bell = page.getByRole("button", { name: "Bildirimler 1 okunmamış" });
   await expect(bell).toBeVisible();
   await bell.click();
   await expect(page.getByRole("dialog", { name: "Bildirimler" }).getByText("Parolanız değiştirildi")).toBeVisible();
   await page.getByRole("link", { name: "Tümü ve tercihler" }).click();
   await expect(page.getByRole("checkbox", { name: "Güvenlik uygulama içi" })).toBeDisabled();
+  await expectAccessible(page, "/bildirimler");
   await page.getByRole("button", { name: "Tümünü okundu say" }).first().click();
   await expect(page.getByRole("button", { name: "Bildirimler", exact: true })).toBeVisible();
 

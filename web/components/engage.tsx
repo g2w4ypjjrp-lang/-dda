@@ -49,10 +49,12 @@ export function NotificationBell() {
   const unread = q.data?.unread ?? 0;
   return (
     <div ref={box} className="relative">
-      <button type="button" aria-label={`Bildirimler${unread ? ` (${unread} okunmamış)` : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}
         className="relative grid size-9 place-items-center rounded-ctl border border-line text-text-2 hover:text-text">
         <Bell className="size-4" aria-hidden />
-        {unread > 0 && <span className="num absolute -right-1 -top-1 grid min-w-[18px] place-items-center rounded-full bg-gold px-1 text-[10px] font-semibold text-accent-text">{unread > 99 ? "99+" : unread}</span>}
+        {/* Ad görünen içerikten oluşur ("Bildirimler 3 okunmamış"): görünen sayı adın parçasıdır. */}
+        <span className="sr-only">Bildirimler</span>
+        {unread > 0 && <><span className="num absolute -right-1 -top-1 grid min-w-[18px] place-items-center rounded-full bg-gold px-1 text-[10px] font-semibold text-accent-text">{unread > 99 ? "99+" : unread}</span><span className="sr-only"> okunmamış</span></>}
       </button>
       {open && (
         <div role="dialog" aria-label="Bildirimler" className="absolute right-0 top-11 z-50 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-card border border-line-strong bg-surface shadow-card">
@@ -64,7 +66,7 @@ export function NotificationBell() {
             {q.data?.items.length ? q.data.items.map((n) => (
               <li key={n.id}>
                 <Link href={n.link ?? "/bildirimler"} onClick={() => { setOpen(false); if (!n.read) read.mutate({ ids: [n.id] }); }}
-                  className={cx("block px-4 py-3 hover:bg-surface-2", !n.read && "bg-gold-soft/40")}>
+                  className={cx("block px-4 py-3 hover:bg-surface-2", !n.read && "tone-highlight bg-gold-soft/40")}>
                   <div className="flex items-start gap-2">
                     {!n.read && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-gold" aria-label="okunmamış" />}
                     <div className="min-w-0">

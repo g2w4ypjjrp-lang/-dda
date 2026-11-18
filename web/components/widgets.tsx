@@ -193,7 +193,7 @@ function NotificationsWidget({ size }: { size: Size }) {
       {q.isLoading ? <Skeleton className="m-5 h-16" /> : !q.data?.items.length ? <Empty title="Bildirim yok" /> : (
         <ul className="divide-y divide-line">
           {q.data.items.map((n) => (
-            <li key={n.id} className={cx("px-5 py-2.5 text-[12.5px]", !n.read && "bg-gold-soft/40")}>
+            <li key={n.id} className={cx("px-5 py-2.5 text-[12.5px]", !n.read && "tone-highlight bg-gold-soft/40")}>
               <Link href={n.link ?? "/bildirimler"} onClick={() => !n.read && read.mutate({ ids: [n.id] })} className="block">
                 <div className="font-medium">{n.title}</div><div className="text-[11px] text-muted">{ago(n.created_at)}</div>
               </Link>
@@ -282,7 +282,7 @@ export function DashboardGrid({ me }: { me: Me }) {
           {layout.map((item, i) => (
             <div key={item.widget} className={cx(SPAN[item.size], "flex min-w-0 flex-col", editing && "rounded-card ring-1 ring-gold/40")} data-widget={item.widget}>
               {editing && (
-                <div className="flex flex-wrap items-center gap-1 rounded-t-card bg-gold-soft px-3 py-1.5 text-[11.5px]">
+                <div className="tone-highlight flex flex-wrap items-center gap-1 rounded-t-card bg-gold-soft px-3 py-1.5 text-[11.5px]">
                   <span className="mr-auto font-medium">{q.data.widgets[item.widget]}</span>
                   {(["s", "m", "l"] as const).map((s) => (
                     <button key={s} type="button" aria-pressed={item.size === s} onClick={() => setDraft(layout.map((x, j) => (j === i ? { ...x, size: s } : x)))}
