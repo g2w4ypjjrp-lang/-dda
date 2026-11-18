@@ -143,3 +143,39 @@ def test_ensemble_weights_prefer_better_model() -> None:
     assert w.sum() == pytest.approx(1.0) and (w >= 0).all()
     assert w[0] > 0.8
     assert log_loss(combine([good, bad], w), y) <= log_loss(bad, y)
+
+
+def test_dixon_coles_handles_lopsided_matchups() -> None:
+    """Gerçek veride (Şampiyonlar Ligi, güçlü–zayıf eşleşmeler) λ ≈ 5–7 olur; ligin ρ'su bu
+    maçlarda τ'yu negatif yapıyor ve eğitim "rho … geçersiz" hatasıyla duruyordu."""
+    rng = np.random.default_rng(3)
+    t0 = datetime(2023, 8, 1, tzinfo=UTC)
+    strength = {"Dev": 1.4, "Orta": 0.2, "Zayıf1": -0.9, "Zayıf2": -1.0, "Zayıf3": -0.8}
+    teams = sorted(strength)
+    matches = []
+    for k in range(6):
+        for h in teams:
+            for a in teams:
+                if h == a:
+                    continue
+                lam = np.exp(0.2 + strength[h] - strength[a] + 0.3)
+                mu = np.exp(0.2 + strength[a] - strength[h])
+                when = t0 + timedelta(days=7 * len(matches) // 4 + k)
+                matches.append(MatchRecord(when, h, a, int(rng.poisson(lam)), int(rng.poisson(mu))))
+    model = DixonColes(xi=0.0).fit(matches)
+    lam, _ = model.rates("Dev", "Zayıf2")
+    assert lam > 4.5  # senaryo gerçekten uç gol beklentisi içeriyor
+    # Gerçek liglerde ρ çoğunlukla negatiftir; sunucudaki hatayı veren durum ρ = −0,2 civarı.
+    for rho in (model.rho, -0.2, 0.2):
+        model.rho = rho
+        clamped = 0
+        for h in teams:
+            for a in teams:
+                if h == a:
+                    continue
+                m = model.score_matrix(h, a)
+                assert (m.probs >= 0).all() and m.probs.sum() == pytest.approx(1.0)
+                assert sum(m.one_x_two().values()) == pytest.approx(1.0)
+                clamped += abs(m.rho) < abs(rho) - 1e-12
+        if rho == -0.2:
+            assert clamped > 0  # eski kod bu eşleşmelerde ValueError verirdi

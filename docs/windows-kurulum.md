@@ -148,6 +148,9 @@ Adımlar:
 
 1. Yeni `futbol-windows-kurulum.zip` dosyasını `C:\Kurulum\Futbol` içine açın ve "Dosyaları değiştir" sorusuna **Evet** deyin. Veri, ayarlar ve yedekler bu klasörlerin dışında olduğu için korunur.
 2. Kurulumu yeniden çalıştırın: `kur.ps1`. Kurulum tekrar çalıştırmaya uygundur; kodu, bağımlılıkları ve veritabanı şemasını günceller, ardından hizmetleri yeniden başlatır.
+   - Güncellemede bellek kontrolü, çalışan futbol süreçlerinin belleğini de hesaba katar; bu bellek, süreçler durdurulunca geri gelir.
+   - Kurulum, dosyaları değiştirmeden önce futbol süreçlerini durdurur ve kapandıklarını doğrular. Bota ait süreçlere dokunmaz.
+3. Model eğitimi daha önce hata verdiyse veri yüklü demektir. İndirmeyi atlayıp yalnızca eğitmek için: `futbol.ps1 tahmin-hazirla -SadeceEgit`.
 
 ## Sonraki adımlar (onay kapıları)
 

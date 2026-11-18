@@ -107,6 +107,42 @@ function Bos-Bellek-MB {
     [int](Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes
 }
 
+function Futbol-Surecleri {
+    # Yalnızca futbol'un kendi süreçleri: pid dosyasındaki ve adı node/python olanlar.
+    $liste = @()
+    foreach ($h in @('api', 'web')) {
+        $pf = Join-Path $PidDir "$h.pid"
+        if (-not (Test-Path $pf)) { continue }
+        $p = Get-Process -Id ([int](Get-Content $pf)) -ErrorAction SilentlyContinue
+        if ($p -and $p.ProcessName -in @('node', 'python')) { $liste += $p }
+    }
+    return $liste
+}
+
+function Futbol-Bellek-MB {
+    $toplam = 0
+    foreach ($p in Futbol-Surecleri) { $toplam += $p.WorkingSet64 }
+    [int]($toplam / 1MB)
+}
+
+function Surecleri-Durdur {
+    foreach ($h in @('api', 'web')) {
+        Stop-ScheduledTask -TaskPath $GorevYolu -TaskName "Futbol-$h" -ErrorAction SilentlyContinue
+    }
+    foreach ($p in Futbol-Surecleri) {
+        $id = $p.Id
+        # taskkill çıktısı (ör. "conhost.exe sonlandırıldı" ya da zaten kapanmış alt süreç) gösterilmez.
+        cmd.exe /c "taskkill /PID $id /T /F >nul 2>&1"
+        # Eski süreç gerçekten kapanana kadar bekle (dosya kilitleri ve port serbest kalsın).
+        for ($i = 0; $i -lt 40 -and (Get-Process -Id $id -ErrorAction SilentlyContinue); $i++) {
+            if ($i -eq 20) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Milliseconds 500
+        }
+        if (Get-Process -Id $id -ErrorAction SilentlyContinue) { Uyar "Süreç $id ($($p.ProcessName)) kapanmadı" }
+    }
+    Remove-Item (Join-Path $PidDir '*.pid') -Force -ErrorAction SilentlyContinue
+}
+
 function Ag-Hizmeti-Adi {
     # "NT AUTHORITY\NETWORK SERVICE" Türkçe Windows'ta farklı adlandırılır: SID'den çözülür.
     (New-Object Security.Principal.SecurityIdentifier('S-1-5-20')).Translate([Security.Principal.NTAccount]).Value

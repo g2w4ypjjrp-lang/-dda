@@ -23,7 +23,7 @@ from numpy.typing import NDArray
 from scipy.optimize import minimize
 from scipy.special import gammaln
 
-from mi_ml.scores import ScoreMatrix
+from mi_ml.scores import ScoreMatrix, dc_tau
 
 FloatArray = NDArray[np.float64]
 IntArray = NDArray[np.int64]
@@ -95,11 +95,8 @@ class DixonColes:
             lam, mu_ = np.exp(log_l), np.exp(log_m)
             ll = x * log_l - lam + y * log_m - mu_ - const
             if self.fit_rho:
-                tau = np.ones_like(x)
-                tau = np.where((x == 0) & (y == 0), 1 - lam * mu_ * rho, tau)
-                tau = np.where((x == 0) & (y == 1), 1 + lam * rho, tau)
-                tau = np.where((x == 1) & (y == 0), 1 + mu_ * rho, tau)
-                tau = np.where((x == 1) & (y == 1), 1 - rho, tau)
+                # Tahminle aynı τ: ρ maç başına geçerli aralığa çekilir (scores.dc_rho).
+                tau = dc_tau(x, y, lam, mu_, rho)
                 ll = ll + np.where(low, np.log(np.clip(tau, 1e-10, None)), 0.0)
             penalty = 0.5 * self.l2 * (np.sum(a**2) + np.sum(d**2))
             return float(-(w * ll).sum() + penalty)

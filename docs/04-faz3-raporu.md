@@ -99,3 +99,23 @@ girer" kuralının işlediğini gösterir. Gerçek veride hangi modellerin kalac
 İlk yarı modeli; kupon motoru (profil, maç sayısı, lig/piyasa filtreleri); aynı maçtaki seçimler
 ortak skor dağılımından, farklı maçlar Monte Carlo ile birleşik olasılık; kupon geçmişi
 (değiştirilemez); oran verisi olursa (M-G2) EV / CLV.
+
+## Ek — Gerçek veriyle bulunan hata: Dixon-Coles ρ (2026-11)
+
+İlk gerçek veriyle eğitimde (football-data.org, 9 lig) her lig **"rho bu gol beklentileriyle
+geçersiz (negatif olasılık)"** hatasıyla durdu. Neden: Dixon-Coles düzeltmesi τ, yalnızca
+`max(−1/λ, −1/μ) ≤ ρ ≤ min(1/(λμ), 1)` aralığında negatif olmaz. Ligin tek ρ'su güçlü–zayıf
+eşleşmelerde (λ ≈ 5–7; ör. Şampiyonlar Ligi) bu aralığın dışına düşüyordu. Demo/sentetik veride
+gol beklentileri dar olduğu için bu durum hiç oluşmamıştı.
+
+Düzeltme (`scores.dc_rho`): ρ maç başına geçerli aralığa çekilir. τ en az 0,1 olur; yani düzeltme
+bir skorun olasılığını en fazla %90 azaltır, hiçbir zaman sıfırlamaz. Eğitimdeki olabilirlik ve
+tahmin aynı τ'yu kullanır. O maçta gerçekten uygulanan ρ, `ScoreMatrix.rho` alanına yazılır.
+Olağan maçlarda (|ρ|·λ < 0,9) hiçbir şey değişmez.
+
+Testler:
+- `test_scores.py`: uç λ/μ/ρ birleşimlerinde olasılıklar geçerli kalıyor; olağan maçlarda ρ değişmiyor.
+- `test_models_math.py::test_dixon_coles_handles_lopsided_matchups`: güçlü–zayıf ligde tüm eşleşmeler doğru çalışıyor.
+
+Eski kod bu testte hatanın aynısını veriyor. Uç eşleşmeli sentetik ligde tam eğitim hattı (backtest,
+LightGBM, ilk yarı) eski kodla aynı hatayla duruyor; yeni kodla tamamlanıyor. ML testleri: 45/45 geçti.

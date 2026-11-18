@@ -23,15 +23,35 @@ MAX_GOALS = 12
 TOTAL_LINES = (0.5, 1.5, 2.5, 3.5, 4.5, 5.5)
 
 
+# τ'nun alt sınırı: düzeltme bir skoru en fazla %90 azaltabilir, hiçbir zaman sıfırlayamaz.
+TAU_FLOOR = 0.1
+
+
+def dc_rho(lam: NDArray[Any] | float, mu: NDArray[Any] | float, rho: float) -> NDArray[Any]:
+    """ρ'yu maç başına geçerli aralığa çeker (Dixon-Coles'un kendi koşulu).
+
+    τ ≥ 0 için ``max(-1/λ, -1/μ) ≤ ρ ≤ min(1/(λμ), 1)`` gerekir. Gol beklentisi yüksek maçlarda
+    (ör. güçlü takım zayıfa karşı, λ ≈ 5) ligin ρ'su bu aralığın dışına düşebilir; o zaman ρ
+    aralığın sınırına (``TAU_FLOOR`` payıyla) çekilir. Olağan maçlarda ρ değişmez.
+    """
+    lam_a, mu_a = np.asarray(lam, dtype=float), np.asarray(mu, dtype=float)
+    lo = -(1.0 - TAU_FLOOR) / np.maximum(lam_a, mu_a)
+    hi = (1.0 - TAU_FLOOR) / np.maximum(lam_a * mu_a, 1.0)
+    return np.asarray(np.clip(rho, lo, hi), dtype=float)
+
+
 def dc_tau(
     x: NDArray[Any], y: NDArray[Any], lam: NDArray[Any], mu: NDArray[Any], rho: float
 ) -> FloatArray:
-    """Dixon-Coles düşük skor düzeltmesi τ(x, y). (0,0), (0,1), (1,0), (1,1) dışındaki skorlarda 1."""
+    """Dixon-Coles düşük skor düzeltmesi τ(x, y). (0,0), (0,1), (1,0), (1,1) dışındaki skorlarda 1.
+
+    ρ önce ``dc_rho`` ile maç başına geçerli aralığa çekilir; böylece τ hiçbir zaman negatif olmaz."""
+    r = dc_rho(lam, mu, rho)
     tau = np.ones(np.broadcast(x, y, lam, mu).shape)
-    tau = np.where((x == 0) & (y == 0), 1.0 - lam * mu * rho, tau)
-    tau = np.where((x == 0) & (y == 1), 1.0 + lam * rho, tau)
-    tau = np.where((x == 1) & (y == 0), 1.0 + mu * rho, tau)
-    tau = np.where((x == 1) & (y == 1), 1.0 - rho, tau)
+    tau = np.where((x == 0) & (y == 0), 1.0 - lam * mu * r, tau)
+    tau = np.where((x == 0) & (y == 1), 1.0 + lam * r, tau)
+    tau = np.where((x == 1) & (y == 0), 1.0 + mu * r, tau)
+    tau = np.where((x == 1) & (y == 1), 1.0 - r, tau)
     return tau
 
 
@@ -54,15 +74,14 @@ class ScoreMatrix:
         pa = poisson.pmf(goals, lambda_away)
         grid = np.outer(ph, pa)
         x, y = np.meshgrid(goals, goals, indexing="ij")
-        grid = grid * dc_tau(x, y, np.array(lambda_home), np.array(lambda_away), rho)
-        if (grid < 0).any():
-            raise ValueError("rho bu gol beklentileriyle geçersiz (negatif olasılık)")
+        rho_used = float(dc_rho(lambda_home, lambda_away, rho))
+        grid = grid * dc_tau(x, y, np.array(lambda_home), np.array(lambda_away), rho_used)
         captured = float(grid.sum())
         return cls(
             grid / captured,
             float(lambda_home),
             float(lambda_away),
-            float(rho),
+            rho_used,  # bu maçta gerçekten uygulanan ρ
             max(0.0, 1 - captured),
         )
 

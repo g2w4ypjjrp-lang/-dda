@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.stats import poisson
 
-from mi_ml.scores import ScoreMatrix
+from mi_ml.scores import TAU_FLOOR, ScoreMatrix, dc_tau
 
 
 @pytest.mark.parametrize(
@@ -58,8 +58,28 @@ def test_negative_rho_raises_draw_probability() -> None:
 def test_invalid_inputs() -> None:
     with pytest.raises(ValueError, match="pozitif"):
         ScoreMatrix.from_rates(0.0, 1.0)
-    with pytest.raises(ValueError, match="rho"):
-        ScoreMatrix.from_rates(3.0, 3.0, 0.25)  # 1 − λμρ < 0
+
+
+@pytest.mark.parametrize(
+    ("lam", "mu", "rho"),
+    [(3.0, 3.0, 0.25), (5.2, 0.35, -0.25), (0.3, 6.0, -0.2), (4.5, 4.5, 0.1), (8.0, 0.2, -0.25)],
+)
+def test_rho_is_clamped_for_high_goal_expectations(lam: float, mu: float, rho: float) -> None:
+    """Gerçek veride görülen hata: λ yüksekken ligin ρ'su τ'yu negatif yapıyordu (eğitim duruyordu).
+
+    Artık ρ maç başına geçerli aralığa çekilir; olasılıklar geçerli ve piyasalar tutarlı kalır."""
+    m = ScoreMatrix.from_rates(lam, mu, rho)
+    assert (m.probs >= 0).all() and m.probs.sum() == pytest.approx(1.0)
+    assert abs(m.rho) < abs(rho)  # bu maçta küçültüldü ve kayda geçti
+    tau = dc_tau(np.array([0, 0, 1, 1]), np.array([0, 1, 0, 1]), np.array(lam), np.array(mu), rho)
+    assert (tau >= TAU_FLOOR - 1e-12).all()
+    x = m.one_x_two()
+    assert x["home"] + x["draw"] + x["away"] == pytest.approx(1.0)
+
+
+def test_rho_unchanged_for_ordinary_matches() -> None:
+    for lam, mu, rho in [(1.5, 1.1, -0.13), (2.4, 0.6, -0.1), (0.4, 0.3, 0.2)]:
+        assert ScoreMatrix.from_rates(lam, mu, rho).rho == pytest.approx(rho)
 
 
 def test_symmetry() -> None:

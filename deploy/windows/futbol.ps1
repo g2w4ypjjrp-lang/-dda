@@ -1,29 +1,16 @@
 ﻿# futbol.canarslan.net.tr yönetim komutları (Yönetici PowerShell):
 #   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
-#              tahmin-hazirla [-Sezon 4] [-Deneme 25] | tahmin | kaldir -Onay [-VeriyiSil]
+#              tahmin-hazirla [-Sezon 4] [-Deneme 25] [-SadeceEgit] | tahmin | kaldir -Onay [-VeriyiSil]
 param(
     [Parameter(Position = 0)][string]$Komut = 'durum',
     [Parameter(Position = 1)][string]$A1,
     [Parameter(Position = 2)][string]$A2,
-    [switch]$Onay, [switch]$VeriyiSil, [switch]$BellekUyarisiniGec,
+    [switch]$Onay, [switch]$VeriyiSil, [switch]$BellekUyarisiniGec, [switch]$SadeceEgit,
     [int]$Sezon = 4, [int]$Deneme = 25
 )
 . (Join-Path $PSScriptRoot 'ortak.ps1')
 if (-not (Yonetici-mi)) { Dur 'Yönetici PowerShell gerekli' }
 
-function Surecleri-Durdur {
-    foreach ($h in @('api', 'web')) {
-        Stop-ScheduledTask -TaskPath $GorevYolu -TaskName "Futbol-$h" -ErrorAction SilentlyContinue
-        $pf = Join-Path $PidDir "$h.pid"
-        if (Test-Path $pf) {
-            $id = [int](Get-Content $pf)
-            $p = Get-Process -Id $id -ErrorAction SilentlyContinue
-            # Yalnızca futbol'un kendi sürecini (ve alt süreçlerini) kapatır.
-            if ($p -and $p.ProcessName -in @('node', 'python')) { taskkill.exe /PID $id /T /F | Out-Null }
-            Remove-Item $pf -Force
-        }
-    }
-}
 function Saglik {
     try { (Invoke-WebRequest "http://127.0.0.1:$ApiPort/health" -UseBasicParsing -TimeoutSec 3).StatusCode } catch { 'yanıt yok' }
 }
@@ -103,16 +90,19 @@ switch ($Komut) {
         & $UvExe cache clean | Out-Null
 
         # 3) Hizmetler yeni ayarla yeniden başlar (zamanlayıcı veri işlerini açar).
-        & (Join-Path $PSScriptRoot 'futbol.ps1') yeniden-baslat
+        if (-not $SadeceEgit) { & (Join-Path $PSScriptRoot 'futbol.ps1') yeniden-baslat }
         Ortam-Yukle
         $bekle = 8   # ücretsiz paket: dakikada 10 istek
 
         # 4) Yaklaşan ve son günlerin maçları (ligler buradan oluşur).
-        Yaz 'Maç takvimi çekiliyor (dün … 8 gün sonrası)'
-        foreach ($g in -1..8) {
-            $gun = (Get-Date).ToUniversalTime().AddDays($g).ToString('yyyy-MM-dd')
-            Mi-Admin football-sync fixtures_date --date $gun | Select-Object -Last 3 | Out-Host
-            Start-Sleep $bekle
+        # -SadeceEgit: veri zaten yüklü; indirme atlanır, yalnızca eğitim ve tahmin yapılır.
+        if (-not $SadeceEgit) {
+            Yaz 'Maç takvimi çekiliyor (dün … 8 gün sonrası)'
+            foreach ($g in -1..8) {
+                $gun = (Get-Date).ToUniversalTime().AddDays($g).ToString('yyyy-MM-dd')
+                Mi-Admin football-sync fixtures_date --date $gun | Select-Object -Last 3 | Out-Host
+                Start-Sleep $bekle
+            }
         }
         $env:PGPASSWORD = Env-Deger 'FUTBOL_DB_PASSWORD'
         $psql = Join-Path $PgBin 'psql.exe'
@@ -126,6 +116,7 @@ switch ($Komut) {
         $simdi = (Get-Date).ToUniversalTime()
         $buSezon = $simdi.Year; if ($simdi.Month -lt 7) { $buSezon-- }
         foreach ($satir in $ligler) {
+            if ($SadeceEgit) { break }
             $id, $ad = $satir.Split('|', 2)
             foreach ($y in ($buSezon - $Sezon + 1)..$buSezon) {
                 Yaz "$ad — $y sezonu"

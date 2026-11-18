@@ -13,7 +13,14 @@ if (-not (Test-Path (Join-Path $webPaket 'server.js')) -and -not (Test-Path (Joi
     Dur "Hazır web paketi yok: $webPaket (kurulum ZIP'indeki web-hazir klasörü)"
 }
 $bos = Bos-Bellek-MB
-Yaz "Kullanılabilir bellek: $bos MB (futbol yaklaşık 350 MB kullanır)"
+# Güncellemede futbol zaten çalışıyor: kurulum onu durdurup yeniden başlatır, kullandığı bellek geri gelir.
+$futbolMb = Futbol-Bellek-MB
+if ($futbolMb -gt 0) {
+    Yaz "Kullanılabilir bellek: $bos MB + çalışan futbol süreçleri $futbolMb MB (güncelleme)"
+    $bos += $futbolMb
+} else {
+    Yaz "Kullanılabilir bellek: $bos MB (futbol yaklaşık 350 MB kullanır)"
+}
 if ($bos -lt 700 -and -not $BellekUyarisiniGec) {
     Dur ("Bellek az ($bos MB). Botunuzu korumak için kurulum durduruldu. Sunucuda açık Claude/Chrome/ChatGPT " +
          "gibi programları kapatıp tekrar deneyin (ya da riski bilerek -BellekUyarisiniGec ekleyin).")
@@ -162,6 +169,10 @@ if ($var -ne '1') {
     & $psql -h 127.0.0.1 -p $PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -qc "CREATE DATABASE futbol OWNER futbol ENCODING 'UTF8' TEMPLATE template0" | Out-Host
 }
 Remove-Item Env:PGPASSWORD
+
+# Güncelleme: çalışan futbol süreçleri kod ve bağımlılık dosyalarını kilitler; önce durdurulur
+# (adım 9'da yeniden başlatılır). Botunuzun süreçlerine dokunulmaz.
+if (Futbol-Surecleri) { Yaz 'Çalışan futbol süreçleri durduruluyor (güncelleme)'; Surecleri-Durdur }
 
 # --- 6. Python ortamı (bağımlılıklar hazır paketlerden; derleme yok) --------------------------
 Yaz 'Python ve bağımlılıklar kuruluyor (ilk seferde birkaç dakika)'
