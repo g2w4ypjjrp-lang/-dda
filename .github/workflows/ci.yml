@@ -179,6 +179,12 @@ jobs:
         env:
           MI_DOMAIN: ci.invalid
           MI_ACME_EMAIL: ci@ci.invalid
+      - name: VDS kurulumu (deploy/vds) yapılandırması ve betikleri
+        run: |
+          sed -e 's/^FUTBOL_DB_PASSWORD=$/FUTBOL_DB_PASSWORD=ci/' -e 's/^FUTBOL_REDIS_PASSWORD=$/FUTBOL_REDIS_PASSWORD=ci/' deploy/vds/env.example > deploy/vds/.env
+          docker compose -p futbol -f deploy/vds/docker-compose.yml --env-file deploy/vds/.env --profile ml config --quiet
+          bash -n deploy/vds/futbol.sh && bash -n deploy/vds/kontrol.sh
+          docker run --rm -v "$PWD/deploy/vds/nginx/futbol.canarslan.net.tr.conf:/etc/nginx/conf.d/futbol.conf:ro" --add-host api:127.0.0.1 nginx:1.27 nginx -t
       - name: Caddyfile doğrulama
         run: >
           docker run --rm -e MI_DOMAIN=ci.invalid -e MI_ACME_EMAIL=ci@ci.invalid

@@ -74,7 +74,11 @@ Erişilebilirlik: E2E her koşuda axe ile WCAG 2.1 AA denetler (`e2e/a11y.ts` �
 tasarım renkleri `design/contrast.py` (web: `lib/contrast.ts`) eşiğini geçmeden yayımlanamaz; vurgu
 tonlu zemine `tone-highlight` sınıfı verin. Anahtar döndürme: `mi-admin rotate-kek`.
 
-Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 dağıtım,
-M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
+Dağıtım kararı (M-G3, kullanıcı): `futbol.canarslan.net.tr`, kullanıcının mevcut VDS'sinde, oradaki site ve
+botlarından AYRIK — `deploy/vds/` (Docker projesi "futbol", /opt/futbol, yalnızca 127.0.0.1:3080, nginx/Apache
+için ayrı vhost dosyası) ve `docs/vds-kurulum.md`. Sunucudaki başka hiçbir şeye dokunulmaz.
+
+Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 sunucuda kurulumun
+uygulanması (kontrol.sh çıktısı bekleniyor), M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
 
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

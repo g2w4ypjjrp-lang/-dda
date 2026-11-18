@@ -1,5 +1,9 @@
 # Çalıştırma kılavuzu (üretim)
 
+> **Seçilen dağıtım (M-G3):** `futbol.canarslan.net.tr`, mevcut VDS'de diğer site ve botlardan ayrık
+> kurulum → **[docs/vds-kurulum.md](vds-kurulum.md)**. Bu dosya, ayrı bir sunucu ve yönetilen
+> veritabanıyla kurulum (docker-compose.prod.yml + Caddy) içindir.
+
 Bu kılavuz, **M-G3 (dağıtım / alan adı) onayından sonra** platformu üretimde çalıştırmak içindir.
 Onay verilmeden hiçbir sunucuya dağıtım yapılmaz. Diğer onay kapıları (M-G1 veri sağlayıcı, M-G2 oran
 verisi, M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta) ayrı ayrı açılır; kapalı olan özellik

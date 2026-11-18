@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from typing import Any
 
 import pytest
 from cryptography.exceptions import InvalidTag
@@ -110,6 +111,30 @@ def test_production_settings_validation() -> None:
         public_web_url="https://matchintelligence.ai",
     )
     assert ok.is_production_like
+
+
+def test_private_network_database_only_for_container_hosts() -> None:
+    """Tek VDS kurulumu: TLS şartı yalnızca aynı Docker ağındaki kapsayıcı adıyla kalkar."""
+    common: dict[str, Any] = {
+        "environment": "production",
+        "redis_url": "redis://redis:6379/0",
+        "secret_kek": _kek(),
+        "web_origins": ["https://futbol.canarslan.net.tr"],
+        "admin_origins": ["https://futbol.canarslan.net.tr"],
+        "public_web_url": "https://futbol.canarslan.net.tr",
+        "database_private_network": True,
+    }
+    ok = Settings(database_url="postgresql://mi:p@postgres:5432/mi", **common)
+    assert ok.database_private_network
+    for remote in ("db.example.com", "10.0.0.5", "localhost.localdomain"):
+        with pytest.raises(ValidationError, match="kapsayıcı adıyla"):
+            Settings(database_url=f"postgresql://mi:p@{remote}:5432/mi", **common)
+    # Bayrak olmadan aynı adres reddedilir (TLS şartı geçerli).
+    with pytest.raises(ValidationError, match="verify-full"):
+        Settings(
+            database_url="postgresql://mi:p@postgres:5432/mi",
+            **{**common, "database_private_network": False},
+        )
 
 
 def test_kek_length_validated() -> None:

@@ -11,6 +11,7 @@ from typing import Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 Environment = Literal["development", "test", "staging", "production"]
 
@@ -73,6 +74,10 @@ class Settings(BaseSettings):
     # ayrı bir diske/bölgeye eşitlenmeli; dosyalar pg_dump "custom" biçiminde ve SHA-256 yanlı.
     backup_dir: str | None = None
     backup_keep: int = Field(default=14, ge=1, le=365)
+    # Veritabanı aynı sunucuda, dışarıya kapalı Docker ağında bir kapsayıcıysa (tek VDS kurulumu,
+    # deploy/vds) TLS şartı kaldırılabilir. Yalnızca sunucu adı noktasız bir kapsayıcı adıysa
+    # geçerli; uzak bir veritabanıyla bu ayar reddedilir.
+    database_private_network: bool = False
     # Prometheus /metrics ucu için taşıyıcı jeton. Boşsa uç 404 döner (kapalı).
     metrics_token: SecretStr | None = None
 
@@ -115,7 +120,14 @@ class Settings(BaseSettings):
         if self.redis_url is None:
             problems.append("MI_REDIS_URL zorunlu (çok örnekli hız sınırı)")
         dsn = self.database_url.get_secret_value()
-        if "sslmode=verify-full" not in dsn:
+        if self.database_private_network:
+            host = make_url(dsn).host or ""
+            if not host or "." in host or ":" in host:
+                problems.append(
+                    "MI_DATABASE_PRIVATE_NETWORK yalnızca aynı Docker ağındaki kapsayıcı adıyla"
+                    f" (ör. postgres) kullanılabilir; sunucu: {host or 'yok'}"
+                )
+        elif "sslmode=verify-full" not in dsn:
             problems.append("veritabanı bağlantısında sslmode=verify-full zorunlu")
         if self.payment_provider == "simulator":
             problems.append("ödeme simülatörü staging/production ortamında kullanılamaz")

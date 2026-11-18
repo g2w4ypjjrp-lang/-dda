@@ -1,0 +1,169 @@
+# Match Intelligence AI — mevcut bir VDS'de, diğer site ve botlardan AYRIK kurulum.
+#
+# * Ayrı Docker projesi: "futbol" (kapsayıcı, ağ ve birim adları futbol_ ile başlar).
+# * Dışarıya port AÇMAZ. Yalnızca 127.0.0.1:${FUTBOL_PORT} (sunucunun içinden) yayın yapar; mevcut
+#   web sunucunuz (nginx/Apache) futbol.canarslan.net.tr için buraya yönlendirir (deploy/vds/nginx).
+# * PostgreSQL ve Redis bu projeye özel kapsayıcılardır; mevcut veritabanlarınıza dokunulmaz.
+# * Bellek/işlemci sınırları: futbol sitesi yoğunlaşsa da diğer servisleriniz etkilenmez.
+# * Günlükler döndürülür (diski doldurmaz).
+#
+# Kullanım: deploy/vds/futbol.sh (kur, durum, yonetici, yedek, guncelle, loglar, durdur)
+name: futbol
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-app: &app
+  image: futbol-api:${MI_VERSION:-latest}
+  build: ../../api
+  env_file: .env
+  environment: &app-env
+    MI_ENVIRONMENT: production
+    MI_DATABASE_URL: postgresql://futbol:${FUTBOL_DB_PASSWORD:?FUTBOL_DB_PASSWORD gerekli}@postgres:5432/futbol
+    MI_DATABASE_PRIVATE_NETWORK: "true"
+    MI_REDIS_URL: redis://:${FUTBOL_REDIS_PASSWORD:?FUTBOL_REDIS_PASSWORD gerekli}@redis:6379/0
+    MI_PUBLIC_WEB_URL: https://${FUTBOL_DOMAIN:?FUTBOL_DOMAIN gerekli}
+    MI_PUBLIC_API_URL: https://${FUTBOL_DOMAIN}
+    MI_WEB_ORIGINS: '["https://${FUTBOL_DOMAIN}"]'
+    MI_ADMIN_ORIGINS: '["https://${FUTBOL_DOMAIN}"]'
+    MI_SESSION_COOKIE_SECURE: "true"
+    # API, X-Forwarded-For başlığına yalnızca web kapsayıcısından gelirse güvenir.
+    MI_TRUSTED_PROXIES: '["${FUTBOL_SUBNET_PREFIX:-172.30.88}.10"]'
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  logging: *logging
+  networks: [futbol]
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: futbol
+      POSTGRES_PASSWORD: ${FUTBOL_DB_PASSWORD}
+      POSTGRES_DB: futbol
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U futbol -d futbol"]
+      interval: 5s
+      retries: 30
+    shm_size: 128m
+    mem_limit: 768m
+    cpus: 1.0
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+    networks: [futbol]
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${FUTBOL_REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory", "192mb", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      retries: 30
+    environment:
+      REDIS_PASSWORD: ${FUTBOL_REDIS_PASSWORD}
+    mem_limit: 256m
+    cpus: 0.5
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+    networks: [futbol]
+
+  migrate:
+    <<: *app
+    command: ["mi-admin", "migrate"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *app
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "mi_api.worker", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      <<: *app-env
+      MI_BACKUP_DIR: /backups
+    volumes: [backups:/backups]
+    # İşçide HTTP yok: sağlık, Celery'nin kendi ping'iyle ölçülür (imajdaki HTTP denetimi yerine).
+    healthcheck:
+      test: ["CMD", "celery", "-A", "mi_api.worker", "inspect", "ping", "--timeout", "5"]
+      interval: 60s
+      timeout: 20s
+      start_period: 30s
+      retries: 3
+    mem_limit: 768m
+    cpus: 1.0
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "mi_api.worker", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    healthcheck: { disable: true }
+    mem_limit: 128m
+    cpus: 0.25
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    image: futbol-web:${MI_VERSION:-latest}
+    build:
+      context: ../../web
+      args: { MI_API_URL: "http://api:8080" }
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp, /app/.next/cache]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 512m
+    cpus: 1.0
+    logging: *logging
+    # Yalnızca sunucunun içinden erişilir; dış dünyaya nginx/Apache üzerinden açılır.
+    ports: ["127.0.0.1:${FUTBOL_PORT:-3080}:3000"]
+    networks:
+      futbol: { ipv4_address: "${FUTBOL_SUBNET_PREFIX:-172.30.88}.10" }
+    depends_on:
+      api: { condition: service_healthy }
+
+  # ML işçisi (tahmin + sonuçlandırma): gerçek veri (M-G1) bağlandıktan sonra --profile ml ile.
+  ml-worker:
+    profiles: ["ml"]
+    image: futbol-ml:${MI_VERSION:-latest}
+    build: { context: ../.., dockerfile: ml/Dockerfile }
+    env_file: .env
+    environment: *app-env
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 1536m
+    cpus: 1.5
+    logging: *logging
+    networks: [futbol]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+networks:
+  futbol:
+    ipam:
+      config:
+        - subnet: "${FUTBOL_SUBNET_PREFIX:-172.30.88}.0/24"
+
+volumes:
+  pgdata:
+  redisdata:
+  backups:
