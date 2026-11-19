@@ -152,6 +152,32 @@ Adımlar:
    - Kurulum, dosyaları değiştirmeden önce futbol süreçlerini durdurur ve kapandıklarını doğrular. Bota ait süreçlere dokunmaz.
 3. Model eğitimi daha önce hata verdiyse veri yüklü demektir. İndirmeyi atlayıp yalnızca eğitmek için: `futbol.ps1 tahmin-hazirla -SadeceEgit`.
 
+## Ayar dosyası silindiyse (temiz kurulum)
+
+`ayarlar\futbol.env` dosyasında veritabanı parolaları ve anahtarlar bulunur; yedeği yoktur.
+- Önce Geri Dönüşüm Kutusu'na bakın. `ayarlar` klasörü oradaysa geri yükleyin.
+- Geri Dönüşüm Kutusu'nda yoksa eski veritabanı açılamaz; temiz kurulum yapılır. Eski veri ve yedekler silinmez, `veri-eski` adıyla saklanır.
+
+Yönetici PowerShell'de:
+
+```powershell
+Get-ScheduledTask -TaskPath '\Futbol\' -ErrorAction SilentlyContinue | Stop-ScheduledTask
+Get-ChildItem C:\Kurulum\Futbol\veri\pid -Filter *.pid -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-Process -Id ([int](Get-Content $_.FullName)) -ErrorAction SilentlyContinue; if ($p -and $p.ProcessName -in @('node','python')) { Stop-Process -Id $p.Id -Force } }
+Stop-Service futbol-postgres -ErrorAction SilentlyContinue
+sc.exe delete futbol-postgres
+Rename-Item C:\Kurulum\Futbol\veri veri-eski
+Rename-Item C:\Kurulum\Futbol\araclar araclar-eski
+```
+
+Ardından:
+1. ZIP'i yeniden açın.
+2. `kur.ps1`'i çalıştırın.
+3. `futbol.ps1 yonetici …` ile yönetici hesabını yeniden oluşturun.
+4. Veri anahtarını `futbol.env` dosyasına yeniden yazın.
+5. `futbol.ps1 tahmin-hazirla` komutunu çalıştırın.
+
+Caddy ayarı `C:\ATI` altında olduğu için etkilenmez.
+
 ## Sonraki adımlar (onay kapıları)
 
 Üye kaydını açmadan önce:

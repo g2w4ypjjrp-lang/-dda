@@ -83,6 +83,12 @@ function Rastgele([int]$bayt) {
     $b = New-Object byte[] $bayt; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); $b
 }
 function Parola { ([Convert]::ToBase64String((Rastgele 48)) -replace '[^A-Za-z0-9]', '').Substring(0, 32) }
+if (-not (Test-Path $EnvDosya) -and (Test-Path (Join-Path $PgData 'PG_VERSION'))) {
+    # Veritabanı var ama parolaların olduğu ayar dosyası yok (ör. klasör elle silindi): yeni parola
+    # üretmek eski veritabanını kilitler. Hiçbir şeyi değiştirmeden dur.
+    Dur ("Ayar dosyası yok ama veritabanı duruyor: $EnvDosya. Ayar dosyasını Geri Dönüşüm Kutusu'ndan " +
+         "geri yükleyin ya da temiz kurulum için docs\windows-kurulum.md 'Ayar dosyası silindiyse' bölümüne bakın.")
+}
 if (-not (Test-Path $EnvDosya)) {
     Yaz 'Ayar dosyası ve gizli değerler oluşturuluyor'
     $dbParola = Parola; $suParola = Parola
