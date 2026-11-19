@@ -5,6 +5,11 @@
   parolasız açılır, tek kullanımlık (24 saat) parola belirleme bağlantısı ekrana yazılır. Kişi
   parolasını belirler, iki adımlı doğrulamayı açar, sonra yönetim paneline girebilir. Sistemde
   zaten aktif bir SUPER_ADMIN varsa reddedilir (sonrakiler panelden atanır).
+* ``password-link --email [--reset-mfa]``: var olan bir hesap için tek kullanımlık (2 saat) parola
+  belirleme bağlantısı üretir. E-posta gönderimi (M-G6) yokken parolasını unutan yöneticinin tek
+  yolu budur; yalnızca sunucuya yönetici olarak erişen çalıştırabilir. ``--reset-mfa`` iki adımlı
+  doğrulamayı ve kurtarma kodlarını siler (telefon kaybı); tüm oturumlar kapatılır. Denetime
+  yazılır.
 * ``audit-verify``: denetim kaydı zincirini doğrular.
 * ``football-sync JOB [--date] [--fixture-id] [--competition-id] [--season]``: futbol verisi işini
   elle çalıştırır (ör. tarihsel veri yükleme). Sonuç ``football_sync_runs``'a da yazılır.
@@ -26,14 +31,14 @@ import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text, update
 
 from mi_api import aio, audit
 from mi_api.config import Settings
 from mi_api.db import Database
 from mi_api.football.sync import JOBS
 from mi_api.migrate import upgrade
-from mi_api.models import EmailToken, User, UserRole
+from mi_api.models import EmailToken, RecoveryCode, User, UserRole, UserSession
 from mi_api.security import new_token, token_digest
 
 
@@ -87,6 +92,51 @@ async def bootstrap(settings: Settings, email: str, name: str) -> str:
         await db.close()
 
 
+PASSWORD_LINK_TTL = timedelta(hours=2)
+
+
+async def password_link(settings: Settings, email: str, *, reset_mfa: bool = False) -> str:
+    db = Database(settings.database_url.get_secret_value(), pool_size=1)
+    try:
+        async with db.session() as session:
+            user = (
+                await session.execute(select(User).where(User.email == email.strip().lower()))
+            ).scalar_one_or_none()
+            if user is None or user.deleted_at is not None:
+                raise SystemExit("Bu e-postada hesap yok")
+            if user.status != "active":
+                raise SystemExit("Bu e-postadaki hesap aktif değil")
+            now = datetime.now(UTC)
+            if reset_mfa:
+                user.mfa_secret_enc = None
+                user.mfa_enabled_at = None
+                user.mfa_last_counter = None
+                await session.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+                await session.execute(
+                    update(UserSession)
+                    .where(UserSession.user_id == user.id, UserSession.revoked_at.is_(None))
+                    .values(revoked_at=now)
+                )
+            token = new_token()
+            session.add(
+                EmailToken(
+                    id=uuid.uuid4(),
+                    user_id=user.id,
+                    purpose="password_reset",
+                    token_digest=token_digest(token),
+                    created_at=now,
+                    expires_at=now + PASSWORD_LINK_TTL,
+                )
+            )
+            await audit.record(
+                session, "system.password_link_issued", actor_type="system",
+                target_type="user", target_id=str(user.id), details={"reset_mfa": reset_mfa},
+            )  # fmt: skip
+        return f"{settings.public_web_url}/sifre-sifirla?token={token}"
+    finally:
+        await db.close()
+
+
 async def audit_verify(settings: Settings) -> int | None:
     db = Database(settings.database_url.get_secret_value(), pool_size=1)
     try:
@@ -128,6 +178,9 @@ def main(argv: list[str] | None = None) -> None:
     boot = sub.add_parser("bootstrap", help="İlk SUPER_ADMIN'i oluştur")
     boot.add_argument("--email", required=True)
     boot.add_argument("--name", required=True)
+    pl = sub.add_parser("password-link", help="Var olan hesaba parola belirleme bağlantısı üret")
+    pl.add_argument("--email", required=True)
+    pl.add_argument("--reset-mfa", action="store_true", help="İki adımlı doğrulamayı da sıfırla")
     sub.add_parser("audit-verify", help="Denetim kaydı zincirini doğrula")
     grant = sub.add_parser("grant-plan", help="Kullanıcıya ödemesiz abonelik ver")
     grant.add_argument("--email", required=True)
@@ -164,6 +217,12 @@ def main(argv: list[str] | None = None) -> None:
         print("SUPER_ADMIN oluşturuldu. Parola belirleme bağlantısı (24 saat, tek kullanım):")
         print(link)
         print("Sonra: giriş → Hesap → İki adımlı doğrulama → Yönetim paneli.")
+    elif args.command == "password-link":
+        link = aio.run(password_link(settings, args.email, reset_mfa=args.reset_mfa))
+        print("Parola belirleme bağlantısı (2 saat, tek kullanım; kimseyle paylaşmayın):")
+        print(link)
+        if args.reset_mfa:
+            print("İki adımlı doğrulama sıfırlandı: girişten sonra Hesap bölümünden yeniden açın.")
     elif args.command == "audit-verify":
         broken = aio.run(audit_verify(settings))
         if broken is None:

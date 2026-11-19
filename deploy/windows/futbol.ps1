@@ -1,11 +1,11 @@
 ﻿# futbol.canarslan.net.tr yönetim komutları (Yönetici PowerShell):
-#   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
+#   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | parola EPOSTA [-MfaSifirla] | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
 #              tahmin-hazirla [-Sezon 4] [-Deneme 25] [-SadeceEgit] [-Lig AD] | tahmin | model-durum | kaldir -Onay [-VeriyiSil]
 param(
     [Parameter(Position = 0)][string]$Komut = 'durum',
     [Parameter(Position = 1)][string]$A1,
     [Parameter(Position = 2)][string]$A2,
-    [switch]$Onay, [switch]$VeriyiSil, [switch]$BellekUyarisiniGec, [switch]$SadeceEgit,
+    [switch]$Onay, [switch]$VeriyiSil, [switch]$BellekUyarisiniGec, [switch]$SadeceEgit, [switch]$MfaSifirla,
     [int]$Sezon = 4, [int]$Deneme = 25, [string]$Lig
 )
 . (Join-Path $PSScriptRoot 'ortak.ps1')
@@ -47,6 +47,13 @@ switch ($Komut) {
     'yonetici' {
         if (-not $A1 -or -not $A2) { Dur 'kullanım: futbol.ps1 yonetici EPOSTA "AD SOYAD"' }
         Ortam-Yukle; Mi-Admin bootstrap --email $A1 --name $A2
+    }
+    'parola' {
+        # Parolasını unutan (e-posta gönderimi henüz yok) hesap için tek kullanımlık bağlantı.
+        # -MfaSifirla: telefon/doğrulama uygulaması kaybolduysa iki adımlı doğrulamayı da sıfırlar.
+        if (-not $A1) { Dur 'kullanım: futbol.ps1 parola EPOSTA [-MfaSifirla]' }
+        Ortam-Yukle
+        if ($MfaSifirla) { Mi-Admin password-link --email $A1 --reset-mfa } else { Mi-Admin password-link --email $A1 }
     }
     'yedek' { Ortam-Yukle; Mi-Admin backup }
     'durdur' { Surecleri-Durdur; Yaz 'Futbol durduruldu (veritabanı hizmeti açık kalır)' }
