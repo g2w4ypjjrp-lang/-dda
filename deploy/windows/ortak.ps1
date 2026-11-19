@@ -61,35 +61,32 @@ function Mi-Admin {
     & $PyExe -m mi_api.cli @args
 }
 
+function Psql-Dosyaya([string]$kullanici, [string]$parola, [string[]]$arg) {
+    # psql çıktısı konsoldan değil UTF-8 dosyadan okunur: Windows konsol kod sayfası (857/1254)
+    # Türkçe ve aksanlı karakterleri bozuyordu ("S├®rie", "baÅŸÄ±na").
+    $cikti = Join-Path $env:TEMP ("futbol-" + [Guid]::NewGuid().ToString('N') + '.txt')
+    $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'; $env:PGPASSWORD = $parola
+    try {
+        & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U $kullanici -d futbol -o $cikti @arg
+        if (Test-Path $cikti) { return [IO.File]::ReadAllLines($cikti, (New-Object Text.UTF8Encoding($false))) }
+    } finally {
+        Remove-Item $cikti -Force -ErrorAction SilentlyContinue; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+        $env:PGCLIENTENCODING = $eskiEnc
+    }
+}
+
 function Sql-Dosya([string]$kullanici, [string]$parola, [string]$sql) {
     # Türkçe karakterler komut satırında bozulmasın diye SQL, UTF-8 dosyadan çalıştırılır.
+    # Ekrana yazılacak metinler için \qecho kullanın (\echo konsola gider, dosyaya değil).
     $f = Join-Path $env:TEMP ("futbol-" + [Guid]::NewGuid().ToString('N') + '.sql')
     [IO.File]::WriteAllText($f, $sql, (New-Object Text.UTF8Encoding($false)))
-    $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'; $env:PGPASSWORD = $parola
-    $eskiKonsol = Utf8-Konsol
-    try { & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U $kullanici -d futbol -v ON_ERROR_STOP=1 -q -f $f }
-    finally {
-        Remove-Item $f -Force -ErrorAction SilentlyContinue; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
-        $env:PGCLIENTENCODING = $eskiEnc; Konsol-Geri $eskiKonsol
-    }
+    try { Psql-Dosyaya $kullanici $parola @('-v', 'ON_ERROR_STOP=1', '-q', '-f', $f) | ForEach-Object { Write-Host $_ } }
+    finally { Remove-Item $f -Force -ErrorAction SilentlyContinue }
 }
 
 function Sql-Satirlar([string]$sql) {
     # Tek değerli sorgu sonuçları (futbol kullanıcısıyla); Türkçe/aksanlı adlar bozulmadan.
-    $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'
-    $env:PGPASSWORD = Env-Deger 'FUTBOL_DB_PASSWORD'
-    $eskiKonsol = Utf8-Konsol
-    try { & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U futbol -d futbol -tAc $sql }
-    finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue; $env:PGCLIENTENCODING = $eskiEnc; Konsol-Geri $eskiKonsol }
-}
-
-function Utf8-Konsol {
-    # psql UTF-8 yazar; konsol kod sayfası farklıysa "S├®rie" gibi bozulur. Eski değer geri verilir.
-    try { $eski = [Console]::OutputEncoding; [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false); return $eski } catch { return $null }
-}
-
-function Konsol-Geri($eski) {
-    if ($eski) { try { [Console]::OutputEncoding = $eski } catch {} }
+    Psql-Dosyaya 'futbol' (Env-Deger 'FUTBOL_DB_PASSWORD') @('-tAc', $sql) | Where-Object { $_ -ne '' }
 }
 
 function Uv-Ortam {

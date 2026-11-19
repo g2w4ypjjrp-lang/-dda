@@ -1,12 +1,12 @@
 ﻿# futbol.canarslan.net.tr yönetim komutları (Yönetici PowerShell):
 #   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
-#              tahmin-hazirla [-Sezon 4] [-Deneme 25] [-SadeceEgit] | tahmin | model-durum | kaldir -Onay [-VeriyiSil]
+#              tahmin-hazirla [-Sezon 4] [-Deneme 25] [-SadeceEgit] [-Lig AD] | tahmin | model-durum | kaldir -Onay [-VeriyiSil]
 param(
     [Parameter(Position = 0)][string]$Komut = 'durum',
     [Parameter(Position = 1)][string]$A1,
     [Parameter(Position = 2)][string]$A2,
     [switch]$Onay, [switch]$VeriyiSil, [switch]$BellekUyarisiniGec, [switch]$SadeceEgit,
-    [int]$Sezon = 4, [int]$Deneme = 25
+    [int]$Sezon = 4, [int]$Deneme = 25, [string]$Lig
 )
 . (Join-Path $PSScriptRoot 'ortak.ps1')
 if (-not (Yonetici-mi)) { Dur 'Yönetici PowerShell gerekli' }
@@ -104,12 +104,14 @@ switch ($Komut) {
                 Start-Sleep $bekle
             }
         }
-        $env:PGPASSWORD = Env-Deger 'FUTBOL_DB_PASSWORD'
-        $psql = Join-Path $PgBin 'psql.exe'
-        & $psql -h 127.0.0.1 -p $PgPort -U futbol -d futbol -qc "UPDATE football_competitions SET is_active = true WHERE provider = '$saglayici'" | Out-Null
-        $ligler = Sql-Satirlar "SELECT id || '|' || name FROM football_competitions WHERE provider = '$saglayici' ORDER BY id"
-        Remove-Item Env:PGPASSWORD
+        Sql-Dosya 'futbol' (Env-Deger 'FUTBOL_DB_PASSWORD') "UPDATE football_competitions SET is_active = true WHERE provider = '$saglayici';"
+        $ligler = @(Sql-Satirlar "SELECT id || '|' || name FROM football_competitions WHERE provider = '$saglayici' ORDER BY id")
         if (-not $ligler) { Dur 'Hiç lig gelmedi. Anahtarı ve günlüğü kontrol edin: futbol.ps1 loglar api' }
+        if ($Lig) {
+            # -Lig: yalnızca adı eşleşen lig(ler) (ör. -Lig "Champions"); diğerlerine dokunulmaz.
+            $ligler = @($ligler | Where-Object { $_.Split('|', 2)[1] -like "*$Lig*" })
+            if (-not $ligler) { Dur "'$Lig' adında lig yok. Lig adları için: futbol.ps1 model-durum" }
+        }
         Yaz ("Takip edilen ligler: " + (($ligler | ForEach-Object { $_.Split('|')[1] }) -join ', '))
 
         # 5) Geçmiş sezonlar (model eğitimi için).
@@ -160,12 +162,16 @@ switch ($Komut) {
         # Lig başına model ve tahmin özeti (yalnızca okur).
         Sql-Dosya 'futbol' (Env-Deger 'FUTBOL_DB_PASSWORD') @'
 \pset footer off
-\echo 'Lig başına modeller ve önümüzdeki 7 günün tahminleri:'
+\qecho 'Lig başına modeller ve önümüzdeki 7 günün tahminleri:'
 WITH fx AS (SELECT f.id, f.status, f.kickoff_at, s.competition_id
             FROM football_fixtures f JOIN football_seasons s ON s.id = f.season_id)
 SELECT c.name AS lig,
        (SELECT max(v.id) FROM ml_model_versions v WHERE v.scope_key = 'competition:' || c.id AND v.status = 'champion') AS sampiyon,
+       (SELECT round((v.metrics -> 'test' -> 'ensemble' ->> 'log_loss')::numeric, 3) FROM ml_model_versions v
+         WHERE v.scope_key = 'competition:' || c.id AND v.status = 'champion') AS sampiyon_ll,
        (SELECT count(*) FROM ml_model_versions v WHERE v.scope_key = 'competition:' || c.id AND v.status = 'challenger') AS aday,
+       (SELECT min(round((v.metrics -> 'test' -> 'ensemble' ->> 'log_loss')::numeric, 3)) FROM ml_model_versions v
+         WHERE v.scope_key = 'competition:' || c.id AND v.status = 'challenger') AS en_iyi_aday_ll,
        (SELECT count(*) FROM fx f WHERE f.competition_id = c.id AND f.status = 'finished') AS biten_mac,
        (SELECT count(*) FROM fx f WHERE f.competition_id = c.id AND f.kickoff_at > now() AND f.kickoff_at < now() + interval '7 days') AS yaklasan_mac,
        (SELECT count(DISTINCT p.fixture_id) FROM ml_predictions p JOIN fx f ON f.id = p.fixture_id
@@ -173,14 +179,14 @@ SELECT c.name AS lig,
        (SELECT count(DISTINCT p.fixture_id) FROM ml_predictions p JOIN fx f ON f.id = p.fixture_id
          WHERE f.competition_id = c.id AND p.kickoff_at > now() AND p.status = 'abstained') AS cekimser
 FROM football_competitions c WHERE c.is_active ORDER BY c.name;
-\echo 'Modeller (en yeni 12):'
+\qecho 'Modeller (en yeni 12; ll = test log loss, düşük daha iyi):'
 SELECT v.id, c.name AS lig, v.status AS durum, v.created_at::timestamp(0) AS egitildi, v.n_rows AS satir,
        round((v.metrics -> 'test' -> 'ensemble' ->> 'log_loss')::numeric, 3) AS test_log_loss,
        round((v.metrics -> 'test' -> 'ensemble' ->> 'accuracy')::numeric, 3) AS test_dogruluk
 FROM ml_model_versions v
 LEFT JOIN football_competitions c ON v.scope_key = 'competition:' || c.id
 ORDER BY v.id DESC LIMIT 12;
-\echo 'Çekimser kalma nedenleri (yaklaşan maçlar):'
+\qecho 'Çekimser kalma nedenleri (yaklaşan maçlar):'
 SELECT r ->> 'code' AS neden, min(r ->> 'message') AS aciklama, count(*) AS adet
 FROM ml_predictions p, jsonb_array_elements(p.abstain_reasons) r
 WHERE p.kickoff_at > now() GROUP BY 1 ORDER BY 3 DESC;
