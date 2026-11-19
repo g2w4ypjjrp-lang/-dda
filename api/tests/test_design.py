@@ -25,7 +25,9 @@ def test_defaults_are_valid_and_distinct() -> None:
     assert len(ORDER) == 11 and set(ORDER) == set(DEFAULTS)
     configs = [DesignConfig.model_validate(DEFAULTS[k]) for k in ORDER]
     # Yalnızca renk teması değil: yerleşim kararları da farklı.
-    assert len({c.layout.hero for c in configs}) == 10  # Neon Light, Signature kompozisyonunu kullanır
+    assert (
+        len({c.layout.hero for c in configs}) == 10
+    )  # Neon Light, Signature kompozisyonunu kullanır
     assert {c.layout.shell for c in configs} == {"topbar", "sidebar", "terminal", "masthead"}
     assert {c.layout.match_list for c in configs} == {"rows", "cards", "table"}
     assert {c.shape.card for c in configs} == {"flat", "outlined", "elevated", "glass", "notched"}
@@ -232,6 +234,6 @@ def test_neon_light_migration_matches_defaults_and_passes_contrast() -> None:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     expected = DesignConfig.model_validate(DEFAULTS["neon-light"]).model_dump(mode="json")
-    assert mod.CONFIG == expected
+    assert expected == mod.CONFIG
     assert expected["mode"] == "light" and expected["shape"]["shadow"] == "neon"
     assert contrast.issues(expected["colors"]) == []
