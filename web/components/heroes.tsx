@@ -47,10 +47,10 @@ function Cta({ className }: { className?: string }) {
   return (
     <div className={cx("flex flex-wrap gap-3", className)}>
       <Link href="/maclar" className="mi-btn-primary inline-flex h-11 items-center gap-2 rounded-ctl bg-gold px-5 text-sm font-semibold text-accent-text hover:bg-gold-hover">
-        Maç Merkezi <ArrowRight className="size-4" aria-hidden />
+        Tahminleri gör <ArrowRight className="size-4" aria-hidden />
       </Link>
-      <Link href="/performans" className="inline-flex h-11 items-center gap-2 rounded-ctl border border-line-strong bg-surface-2 px-5 text-sm font-medium text-text hover:bg-surface-3">
-        Model nasıl ölçülüyor?
+      <Link href="/kuponlar" className="inline-flex h-11 items-center gap-2 rounded-ctl border border-line-strong bg-surface-2 px-5 text-sm font-medium text-text hover:bg-surface-3">
+        Kupon oluştur
       </Link>
     </div>
   );

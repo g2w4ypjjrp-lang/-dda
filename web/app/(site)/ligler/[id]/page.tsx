@@ -40,7 +40,7 @@ export default function StandingsPage({ params }: { params: Promise<{ id: string
   const q = useQuery({ queryKey: ["standings", id], queryFn: () => api<Standings>(`/v1/football/competitions/${id}/standings`) });
   return (
     <div className="py-8">
-      <Link href="/maclar" className="inline-flex items-center gap-1.5 text-[13px] text-text-2 hover:text-text"><ArrowLeft className="size-4" aria-hidden /> Maç Merkezi</Link>
+      <Link href="/maclar" className="inline-flex items-center gap-1.5 text-[13px] text-text-2 hover:text-text"><ArrowLeft className="size-4" aria-hidden /> Tüm tahminler</Link>
       {q.isLoading ? (
         <Skeleton className="mt-4 h-96" />
       ) : q.isError || !q.data ? (

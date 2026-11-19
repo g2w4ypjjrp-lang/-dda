@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 ORDER = (
+    "neon-light",
     "signature-black",
     "swiss-intelligence",
     "quantum-terminal",
@@ -23,14 +24,80 @@ ORDER = (
     "future-sports-lab",
     "mi-signature",
 )
-DEFAULT_KEY = "signature-black"
+DEFAULT_KEY = "neon-light"  # kullanıcı kararı (2026-11): açık zemin, neon vurgu
 
 
 def _c(**kw: str) -> dict[str, str]:
     return kw
 
 
+# Geçiş 0014 aynı yapılandırmayı sabit olarak taşır (geçiş uygulama kodundan bağımsız kalsın).
+NEON_LIGHT: dict[str, Any] = {
+    "name": "Neon Light",
+    "tagline": "Açık zemin, neon pembe ve camgöbeği parıltı; sade ve okunaklı.",
+    "mode": "light",
+    "colors": _c(
+        bg="#f5f6fc",
+        bg_elevated="#f1f3fb",
+        surface="#ffffff",
+        surface_2="#f4f5fc",
+        surface_3="#e6e9f7",
+        line="#1a1f4a17",
+        line_strong="#1a1f4a2e",
+        text="#0c0f2e",
+        text_2="#33385e",
+        muted="#575c80",
+        accent="#a00d8e",
+        accent_text="#ffffff",
+        data="#0058b8",
+        positive="#006a46",
+        warning="#8a5200",
+        negative="#b01237",
+        home="#00b8f0",
+        draw="#9aa0bf",
+        away="#ff2bd6",
+    ),
+    "typography": {
+        "font": "inter",
+        "heading_font": "space-grotesk",
+        "mono_font": "jetbrains-mono",
+        "base_size": 15,
+        "scale": 1.25,
+        "heading_weight": 700,
+        "heading_tracking": -0.02,
+    },
+    "shape": {
+        "radius": 18,
+        "radius_control": 12,
+        "border_width": 1,
+        "card": "elevated",
+        "shadow": "neon",
+    },
+    "layout": {
+        "shell": "topbar",
+        "sidebar_width": 248,
+        "page_width": 1200,
+        "gap": 24,
+        "grid_columns": 12,
+        "density": "comfortable",
+        "hero": "signature",
+        "match_list": "cards",
+        "menu": "pill",
+        "logo": "monogram",
+    },
+    "components": {
+        "button": "solid",
+        "table": "lined",
+        "chart": "area",
+        "chart_stroke": 2,
+        "chart_grid": True,
+    },
+    "motion": {"level": "standard", "duration_ms": 360},
+    "mobile": {"nav": "tabs"},
+}
+
 DEFAULTS: dict[str, dict[str, Any]] = {
+    "neon-light": NEON_LIGHT,
     "signature-black": {
         "name": "Signature Black",
         "tagline": "Amiral gemisi: grafit yüzeyler, metalik vurgu, katmanlı dashboard.",

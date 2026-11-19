@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { Badge, Button, Card, CardHeader, Empty, FormError, Notice, Skeleton, cx } from "@/components/ui";
 import { ApiError, api, post } from "@/lib/api";
-import { fmtDateTime, fmtTime, pct, sb, shiftDay, trToday } from "@/lib/format";
+import { fmtDateTime, fmtTime, pct, sb, trToday } from "@/lib/format";
 import { basket, useBasket } from "@/lib/basket";
 import { useMe } from "@/lib/hooks";
 
@@ -28,6 +28,11 @@ const PROFILES = [
   { key: "low", label: "Düşük risk", hint: "Seçim olasılığı ≥ %70" },
   { key: "balanced", label: "Dengeli", hint: "Seçim olasılığı %55–78" },
   { key: "high", label: "Yüksek risk", hint: "Seçim olasılığı %38–62" },
+] as const;
+const DAY_OPTIONS = [
+  { days: 1, label: "Bugün" },
+  { days: 3, label: "3 gün" },
+  { days: 7, label: "7 gün" },
 ] as const;
 const MARKETS = [
   { key: "1x2", label: "Maç sonucu" },
@@ -219,14 +224,26 @@ function History() {
 export default function CouponCenter() {
   const { data: me, isLoading } = useMe();
   const today = trToday();
-  const [day, setDay] = useState(today);
+  const [days, setDays] = useState(3);
   const [profile, setProfile] = useState<Draft["profile"]>("balanced");
   const [size, setSize] = useState(3);
   const [markets, setMarkets] = useState<string[]>([]);
   const generate = useMutation({
-    mutationFn: () => post<Draft>("/v1/coupons/generate", { date: day, profile, size, ...(markets.length ? { markets } : {}) }),
+    mutationFn: (o?: { profile?: Draft["profile"]; size?: number; days?: number }) =>
+      post<Draft>("/v1/coupons/generate", {
+        date: today, days: o?.days ?? days, profile: o?.profile ?? profile, size: o?.size ?? size,
+        ...(markets.length ? { markets } : {}),
+      }),
   });
   const d = generate.data;
+  const err = generate.error instanceof ApiError ? generate.error : null;
+  /** Yetersiz aday: tek tıkla daha geniş ayarla yeniden dene (ayarlar da güncellenir). */
+  const retry = (o: { profile?: Draft["profile"]; size?: number; days?: number }) => {
+    if (o.profile) setProfile(o.profile);
+    if (o.size) setSize(o.size);
+    if (o.days) setDays(o.days);
+    generate.mutate(o);
+  };
 
   return (
     <div className="py-8">
@@ -248,11 +265,11 @@ export default function CouponCenter() {
             <CardHeader eyebrow="Ayarlar" title="Kupon profili" />
             <form className="space-y-5 p-5" onSubmit={(e) => { e.preventDefault(); generate.mutate(); }}>
               <fieldset>
-                <legend className="mb-2 text-[13px] font-medium text-text-2">Gün</legend>
+                <legend className="mb-2 text-[13px] font-medium text-text-2">Hangi maçlar?</legend>
                 <div className="flex gap-2">
-                  {[today, shiftDay(today, 1)].map((x, i) => (
-                    <button key={x} type="button" aria-pressed={day === x} onClick={() => setDay(x)} className={cx("h-9 flex-1 rounded-ctl text-[12.5px] font-medium", day === x ? "bg-text text-bg" : "border border-line text-text-2")}>
-                      {i === 0 ? "Bugün" : "Yarın"}
+                  {DAY_OPTIONS.map((o) => (
+                    <button key={o.days} type="button" aria-pressed={days === o.days} onClick={() => setDays(o.days)} className={cx("h-9 flex-1 rounded-ctl text-[12.5px] font-medium", days === o.days ? "bg-text text-bg" : "border border-line text-text-2")}>
+                      {o.label}
                     </button>
                   ))}
                 </div>
@@ -277,9 +294,11 @@ export default function CouponCenter() {
                   {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} maç</option>)}
                 </select>
               </label>
-              <fieldset>
-                <legend className="mb-2 text-[13px] font-medium text-text-2">Piyasalar <span className="text-muted">(boş = tümü)</span></legend>
-                <div className="flex flex-wrap gap-2">
+              <details className="group">
+                <summary className="cursor-pointer list-none text-[13px] font-medium text-text-2 hover:text-text">
+                  Gelişmiş: piyasa seçimi <span className="text-muted">({markets.length ? `${markets.length} seçili` : "tümü"})</span>
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-2">
                   {MARKETS.map((m) => (
                     <button key={m.key} type="button" aria-pressed={markets.includes(m.key)} onClick={() => setMarkets(markets.includes(m.key) ? markets.filter((x) => x !== m.key) : [...markets, m.key])}
                       className={cx("h-8 rounded-full px-3 text-[12px] font-medium", markets.includes(m.key) ? "bg-gold-soft text-gold" : "border border-line text-text-2")}>
@@ -287,7 +306,7 @@ export default function CouponCenter() {
                     </button>
                   ))}
                 </div>
-              </fieldset>
+              </details>
               <Button type="submit" className="w-full" loading={generate.isPending}><Sparkles className="size-4" aria-hidden />Kupon oluştur</Button>
             </form>
           </Card>
@@ -295,7 +314,19 @@ export default function CouponCenter() {
           <div className="space-y-6">
             <Basket />
             {generate.isError ? (
-              <Card><div className="p-5"><FormError error={generate.error} /></div></Card>
+              <Card><div className="space-y-3 p-5">
+                <FormError error={generate.error} />
+                {err?.code === "insufficient_candidates" && (
+                  <div className="flex flex-wrap gap-2">
+                    {profile !== "high" && <Button size="sm" variant="secondary" onClick={() => retry({ profile: "high" })}>Yüksek risk ile dene</Button>}
+                    {size > 1 && <Button size="sm" variant="secondary" onClick={() => retry({ size: Math.max(1, size - 1) })}>{size - 1} maçla dene</Button>}
+                    {days < 7 && <Button size="sm" variant="secondary" onClick={() => retry({ days: 7 })}>7 günü tara</Button>}
+                  </div>
+                )}
+                {(err?.code === "plan_required" || err?.code === "plan_limit") && (
+                  <p className="text-[12.5px] text-muted">Kupon oluşturucu PRO ve ELITE paketlerde açıktır. <Link href="/paketler" className="font-medium text-gold hover:underline">Paketleri görün</Link>.</p>
+                )}
+              </div></Card>
             ) : !d ? (
               <Card><Empty title="Profil seçip kupon oluşturun" icon={<Dice5 className="size-5" aria-hidden />}>Model, seçtiğiniz olasılık bandına uyan ve güvenilirliği yeterli maçlardan en olası seçimleri önerir. Kendi seçimlerinizi maç sayfasındaki <strong className="text-text">+</strong> düğmeleriyle de ekleyebilirsiniz.</Empty></Card>
             ) : (

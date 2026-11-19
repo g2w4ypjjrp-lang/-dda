@@ -375,10 +375,41 @@ def build(
     )
     if len(picks) < size:
         raise CouponError(
-            "insufficient_candidates",
-            f"Bu profil ve filtrelerle yalnızca {len(picks)} uygun maç var ({size} istendi)",
+            "insufficient_candidates", shortage_text(candidates, profile, len(picks), size)
         )
     return picks[:size]
+
+
+PROFILE_LABELS = {"low": "Düşük risk", "balanced": "Dengeli", "high": "Yüksek risk"}
+
+
+def shortage_text(candidates: Sequence[Candidate], profile: Profile, found: int, size: int) -> str:
+    """Neden yeterli seçim çıkmadığını sayılarla anlatır ve ne yapılabileceğini söyler."""
+    if not candidates:
+        return (
+            "Seçilen günlerde tahmini yayımlanmış ve henüz başlamamış maç yok. "
+            "Daha uzun bir aralık seçin ya da tahminlerin yenilenmesini bekleyin."
+        )
+    rel = PROFILES[profile]["reliability"]
+    low_rel = sum(c.reliability not in rel for c in candidates)
+    out_of_band = len(candidates) - low_rel - found
+    parts = [f"{len(candidates)} maç tarandı, {found} tanesi uygun ({size} istendi)."]
+    if low_rel:
+        parts.append(
+            f"{low_rel} maçta model güvenilirliği bu profil için yetersiz "
+            f"({PROFILE_LABELS[profile]} yalnızca orta/yüksek güvenilirliği kullanır)."
+        )
+    if out_of_band > 0:
+        band = PROFILES[profile]
+        parts.append(
+            f"{out_of_band} maçta olasılığı %{band['min_p'] * 100:.0f}–%{band['max_p'] * 100:.0f} "
+            "aralığına uyan seçim yok."
+        )
+    tips = ["maç sayısını azaltın", "daha uzun bir gün aralığı seçin"]
+    if profile != "high":
+        tips.append("Yüksek risk profilini deneyin (düşük güvenilirlikli tahminleri de kullanır)")
+    parts.append("Öneri: " + ", ".join(tips) + ".")
+    return " ".join(parts)
 
 
 def risk_text(p: float, legs: int, min_reliability: str) -> str:

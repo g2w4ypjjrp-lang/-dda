@@ -99,6 +99,7 @@ Bu komut tek kullanımlık bir bağlantı verir. Sonrasında:
 | Elle yedek (geri yükleyerek doğrular) | `futbol.ps1 yedek` |
 | Parolayı unuttum (tek kullanımlık bağlantı, 2 saat) | `futbol.ps1 parola EPOSTA` |
 | Telefon/doğrulama uygulaması da kayıp | `futbol.ps1 parola EPOSTA -MfaSifirla` |
+| Kendi hesabınıza kupon hakkı (ödemesiz ELITE, 10 yıl) | `futbol.ps1 paket EPOSTA` |
 | Durdur / başlat / yeniden başlat | `futbol.ps1 durdur` · `baslat` · `yeniden-baslat` |
 | Günlükler | `futbol.ps1 loglar api` · `futbol.ps1 loglar web` |
 | Tamamen kaldır (veri korunur) | `futbol.ps1 kaldir -Onay` ve `caddy-ekle.ps1 -Kaldir` |

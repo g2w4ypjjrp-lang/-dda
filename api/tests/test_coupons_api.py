@@ -45,6 +45,22 @@ async def test_generate_draft(
             "/v1/coupons/generate", json={"date": "2026-11-20", "profile": "low", "size": 6}
         )
         assert r.status_code == 422 and r.json()["code"] == "insufficient_candidates"
+        # Neden yetersiz olduğu sayılarla ve öneriyle anlatılır.
+        assert "maç tarandı" in r.json()["detail"] and "Öneri" in r.json()["detail"]
+        # Gün aralığı: önceki gün tek başına boş; iki günlük pencere ertesi günün maçlarını kapsar.
+        r = await c.post(
+            "/v1/coupons/generate", json={"date": "2026-11-19", "profile": "low", "size": 2}
+        )
+        assert r.status_code == 422 and "maç yok" in r.json()["detail"]
+        r = await c.post(
+            "/v1/coupons/generate",
+            json={"date": "2026-11-19", "days": 2, "profile": "low", "size": 2},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["params"]["days"] == 2
+        assert (
+            await c.post("/v1/coupons/generate", json={"days": 8, "profile": "low"})
+        ).status_code == 422
         r = await c.post("/v1/coupons/generate", json={"profile": "low", "markets": ["korner"]})
         assert r.json()["code"] == "unknown_market"
 

@@ -23,13 +23,13 @@ test("kupon merkezi: giriş → kupon oluştur → kaydet → geçmiş", async (
 
   // Demo verisinde hangi profilin uygun maç bulacağı modele bağlı: sırayla dene.
   let found = false;
-  for (const day of ["Bugün", "Yarın"]) {
+  for (const day of ["Bugün", "3 gün"]) {
     await page.getByRole("button", { name: day, exact: true }).click();
     for (const profile of ["Dengeli", "Yüksek risk", "Düşük risk"]) {
       await page.getByText(profile, { exact: true }).click();
       await page.getByRole("button", { name: "Kupon oluştur" }).click();
       const ok = page.getByRole("heading", { name: "Önerilen kupon" });
-      const err = page.getByRole("alert").filter({ hasText: "uygun maç" });
+      const err = page.getByRole("alert").filter({ hasText: /tarandı|maç yok/ });
       await expect(ok.or(err)).toBeVisible();
       if (await ok.isVisible()) { found = true; break; }
     }

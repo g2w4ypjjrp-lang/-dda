@@ -31,7 +31,7 @@ test("maç sayfasından kupona ekle → seçimlerim → birleşik olasılık →
   await page.getByRole("button", { name: "2.5 Üst kupona ekle" }).click();
   await expect(page.getByRole("button", { name: "2.5 Üst kupondan çıkar" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Kupon Merkezi" }).first().click();
+  await page.getByRole("link", { name: "Kupon Oluştur" }).first().click();
   const basket = page.getByTestId("basket");
   await expect(basket.getByText("Kupona eklenenler (2)")).toBeVisible();
   await expect(basket.getByRole("heading", { name: "Seçimlerimin birleşik olasılığı" })).toBeVisible();

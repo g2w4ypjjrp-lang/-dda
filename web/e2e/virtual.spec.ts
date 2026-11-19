@@ -16,13 +16,13 @@ async function loginNew(page: Page, prefix: string) {
 
 async function generateCoupon(page: Page): Promise<boolean> {
   await page.goto("/kuponlar");
-  for (const day of ["Bugün", "Yarın"]) {
+  for (const day of ["Bugün", "3 gün"]) {
     await page.getByRole("button", { name: day, exact: true }).click();
     for (const profile of ["Dengeli", "Yüksek risk", "Düşük risk"]) {
       await page.getByText(profile, { exact: true }).click();
       await page.getByRole("button", { name: "Kupon oluştur" }).click();
       const ok = page.getByRole("heading", { name: "Önerilen kupon" });
-      await expect(ok.or(page.getByRole("alert").filter({ hasText: "uygun maç" }))).toBeVisible();
+      await expect(ok.or(page.getByRole("alert").filter({ hasText: /tarandı|maç yok/ }))).toBeVisible();
       if (await ok.isVisible()) return true;
     }
   }

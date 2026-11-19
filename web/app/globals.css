@@ -128,6 +128,41 @@ body {
   background-attachment: fixed;
 }
 
+/* --- Neon (açık zemin): camgöbeği/pembe ışık lekeleri, parlayan düğme ve seçili menü ---------- */
+/* Yalnızca süs: metin renkleri tasarımın kontrast denetiminden geçmiş renkleridir.               */
+[data-shadow="neon"] body {
+  background:
+    radial-gradient(900px 520px at 88% -8%, color-mix(in srgb, var(--mi-away) 13%, transparent), transparent 62%),
+    radial-gradient(820px 520px at -6% 4%, color-mix(in srgb, var(--mi-home) 15%, transparent), transparent 62%),
+    radial-gradient(700px 420px at 50% 115%, color-mix(in srgb, var(--mi-home) 8%, transparent), transparent 60%),
+    var(--mi-bg);
+  background-attachment: fixed;
+}
+[data-shadow="neon"] .mi-btn-primary {
+  background-image: linear-gradient(120deg, var(--mi-gold), color-mix(in srgb, var(--mi-gold) 62%, var(--mi-cobalt)));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mi-away) 35%, transparent), 0 8px 24px -8px color-mix(in srgb, var(--mi-away) 75%, transparent);
+  transition: box-shadow var(--mi-motion) ease, transform var(--mi-motion) ease;
+}
+[data-shadow="neon"] .mi-btn-primary:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mi-away) 55%, transparent), 0 10px 32px -6px color-mix(in srgb, var(--mi-away) 90%, transparent), 0 0 22px -4px color-mix(in srgb, var(--mi-home) 70%, transparent);
+  transform: translateY(-1px);
+}
+[data-shadow="neon"] .mi-nav-link[aria-current="page"] {
+  background: var(--mi-surface);
+  color: var(--mi-text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mi-away) 40%, transparent), 0 6px 18px -8px color-mix(in srgb, var(--mi-away) 70%, transparent);
+}
+[data-shadow="neon"] .mi-card { transition: box-shadow var(--mi-motion) ease; }
+[data-shadow="neon"] a.mi-card:hover,
+[data-shadow="neon"] .mi-card:has(> a:hover) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mi-home) 45%, transparent), 0 12px 34px -14px color-mix(in srgb, var(--mi-home) 80%, transparent);
+}
+[data-shadow="neon"] .mi-neon-line {
+  height: 2px;
+  background: linear-gradient(90deg, var(--mi-home), var(--mi-away));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--mi-away) 70%, transparent);
+}
+
 /* --- Tipografi: başlık fontu, ağırlığı ve harf aralığı tasarıma göre ------------------------- */
 [data-design] :is(h1, h2) {
   font-family: var(--mi-font-heading) !important;

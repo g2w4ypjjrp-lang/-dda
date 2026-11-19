@@ -23,7 +23,7 @@ export interface DesignConfig {
     string
   >;
   typography: { font: string; heading_font: string; mono_font: string; base_size: number; scale: number; heading_weight: number; heading_tracking: number };
-  shape: { radius: number; radius_control: number; border_width: number; card: "flat" | "outlined" | "elevated" | "glass" | "notched"; shadow: "none" | "soft" | "deep" | "glow" };
+  shape: { radius: number; radius_control: number; border_width: number; card: "flat" | "outlined" | "elevated" | "glass" | "notched"; shadow: "none" | "soft" | "deep" | "glow" | "neon" };
   layout: { shell: Shell; sidebar_width: number; page_width: number; gap: number; grid_columns: 12 | 16; density: "compact" | "regular" | "comfortable"; hero: Hero; match_list: MatchListStyle; menu: "pill" | "underline" | "block"; logo: "monogram" | "wordmark" | "terminal" | "serif" | "signature" };
   components: { button: "solid" | "outline" | "soft" | "sharp"; table: "lined" | "zebra" | "boxed"; chart: "line" | "area" | "bars"; chart_stroke: number; chart_grid: boolean };
   motion: { level: "none" | "subtle" | "standard"; duration_ms: number };
@@ -58,7 +58,7 @@ const KEY = /^[a-z0-9-]{3,32}$/;
 const ENUMS = {
   shell: ["topbar", "sidebar", "terminal", "masthead"],
   card: ["flat", "outlined", "elevated", "glass", "notched"],
-  shadow: ["none", "soft", "deep", "glow"],
+  shadow: ["none", "soft", "deep", "glow", "neon"],
   density: ["compact", "regular", "comfortable"],
   menu: ["pill", "underline", "block"],
   button: ["solid", "outline", "soft", "sharp"],
@@ -79,6 +79,8 @@ const SHADOWS = {
   soft: "0 1px 2px color-mix(in srgb, var(--mi-text) 6%, transparent), 0 8px 24px -16px color-mix(in srgb, var(--mi-text) 22%, transparent)",
   deep: "0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 32px -18px rgba(0,0,0,0.8)",
   glow: "0 0 0 1px color-mix(in srgb, var(--mi-gold) 10%, transparent), 0 18px 48px -24px color-mix(in srgb, var(--mi-gold) 35%, transparent)",
+  // Neon: ev (camgöbeği) ve deplasman (pembe) renkleriyle iki tonlu parıltı; metin rengine dokunmaz.
+  neon: "0 0 0 1px color-mix(in srgb, var(--mi-away) 18%, transparent), 0 10px 28px -16px color-mix(in srgb, var(--mi-away) 55%, transparent), 0 22px 54px -30px color-mix(in srgb, var(--mi-home) 70%, transparent)",
 };
 
 /** Bir tasarımın CSS kuralı. ``selector`` doğrulanmış anahtar veya önizleme anahtarıdır. */
@@ -156,6 +158,7 @@ export function designAttrs(key: string, cfg: DesignConfig | null): Record<strin
   add("data-mode", pick(cfg.mode, ENUMS.mode));
   add("data-shell", pick(cfg.layout?.shell, ENUMS.shell));
   add("data-card", pick(cfg.shape?.card, ENUMS.card));
+  add("data-shadow", pick(cfg.shape?.shadow, ENUMS.shadow));
   add("data-density", pick(cfg.layout?.density, ENUMS.density));
   add("data-menu", pick(cfg.layout?.menu, ENUMS.menu));
   add("data-button", pick(cfg.components?.button, ENUMS.button));

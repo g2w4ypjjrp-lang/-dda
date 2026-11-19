@@ -51,7 +51,7 @@ export default function MatchCenterPage() {
     <div className="py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="eyebrow mb-2">Maç Merkezi</div>
+          <div className="eyebrow mb-2">Tahminler</div>
           <h1 className="text-[28px] font-semibold tracking-tight">Maçlar ve analizler</h1>
         </div>
         <LiveCount items={all} />

@@ -20,7 +20,7 @@ export default function PerformancePage() {
   const d = q.data;
   return (
     <div className="py-8">
-      <div className="eyebrow mb-2">Model Şeffaflığı</div>
+      <div className="eyebrow mb-2">Başarı Oranı</div>
       <h1 className="text-[28px] font-semibold tracking-tight">Gerçekleşmiş tahmin performansı</h1>
       <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-muted">
         Bu sayfadaki her rakam, maç başlamadan önce kaydedilmiş ve sonradan değiştirilemeyen tahminlerden hesaplanır.

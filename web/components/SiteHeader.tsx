@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, Crown, Home, LayoutDashboard, LogIn, Menu, ShieldCheck, Ticket, Wallet, X } from "lucide-react";
+import { Activity, BarChart3, Home, LayoutDashboard, LogIn, Menu, ShieldCheck, Ticket, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { api } from "@/lib/api";
@@ -17,12 +17,11 @@ import { SiteFooter } from "./SiteFooter";
 import { cx } from "./ui";
 
 const NAV = [
-  { href: "/", label: "Genel Bakış", icon: Home },
-  { href: "/maclar", label: "Maç Merkezi", icon: Activity },
-  { href: "/kuponlar", label: "Kupon Merkezi", icon: Ticket },
-  { href: "/sanal", label: "Sanal Portföy", icon: Wallet },
-  { href: "/performans", label: "Model Şeffaflığı", icon: BarChart3 },
-  { href: "/paketler", label: "Paketler", icon: Crown },
+  // Sade menü: dört ana iş. Sanal Portföy, Paketler, SSS alt bilgide ve kişisel panelde.
+  { href: "/", label: "Ana Sayfa", icon: Home },
+  { href: "/maclar", label: "Tahminler", icon: Activity },
+  { href: "/kuponlar", label: "Kupon Oluştur", icon: Ticket },
+  { href: "/performans", label: "Başarı Oranı", icon: BarChart3 },
 ];
 
 function isActive(path: string, href: string) {
@@ -89,7 +88,7 @@ function MobileTabs() {
   return (
     <nav aria-label="Mobil menü" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
       <div className="grid grid-cols-5">
-        {[...NAV.filter((n) => n.href !== "/sanal" && n.href !== "/paketler"), me ? { href: "/panel", label: "Panelim", icon: LayoutDashboard } : { href: "/giris", label: "Giriş", icon: LogIn }].map((n) => (
+        {[...NAV, me ? { href: "/panel", label: "Panelim", icon: LayoutDashboard } : { href: "/giris", label: "Giriş", icon: LogIn }].map((n) => (
           <Link
             key={n.href}
             href={n.href}
@@ -157,6 +156,7 @@ function Topbar({ children }: { children: ReactNode }) {
           </div>
         </div>
         {mobileNav === "top" && <MobileTopTabs />}
+        <div className="mi-neon-line" aria-hidden />
       </header>
       <Main>{children}</Main>
       <SiteFooter />

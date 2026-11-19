@@ -85,4 +85,9 @@ Linux sunucu için `deploy/vds/` (Docker) de hazır ve test edildi.
 Sıradakiler (kullanıcı kararı bekleyenler): M-G1 veri sağlayıcı, M-G2 oran verisi, M-G3 Windows kurulumunun
 sunucuda uygulanması (kullanıcı adım adım çalıştırıyor), M-G4 hukuk metinleri, M-G5 canlı ödeme, M-G6 e-posta. Ayrıntı: `docs/13-faz10-raporu.md` §Açık kalanlar.
 
+Varsayılan tasarım `neon-light` (kullanıcı kararı; geçiş 0014, `docs/14-neon-kupon-raporu.md`): açık zemin, neon
+yalnızca süs (`shadow: "neon"`, ev/deplasman renkleri) — metin renkleri kontrast kapısından geçmeli. Ana menü 4 başlık
+(Ana Sayfa, Tahminler, Kupon Oluştur, Başarı Oranı). Kupon üretme `days` (1–7) penceresi; güvenilirlik eşikleri gevşetilmez.
+Sunucuda: `futbol.ps1 parola EPOSTA [-MfaSifirla]`, `futbol.ps1 paket EPOSTA`, `futbol.ps1 model-durum`.
+
 Kod saklama: kullanıcı her faz sonunda ZIP ister; GitHub'a yalnızca istediğinde yüklenir.

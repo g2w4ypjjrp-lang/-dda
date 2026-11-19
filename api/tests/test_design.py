@@ -22,10 +22,10 @@ from mi_api.design.schema import DesignConfig
 
 
 def test_defaults_are_valid_and_distinct() -> None:
-    assert len(ORDER) == 10 and set(ORDER) == set(DEFAULTS)
+    assert len(ORDER) == 11 and set(ORDER) == set(DEFAULTS)
     configs = [DesignConfig.model_validate(DEFAULTS[k]) for k in ORDER]
     # Yalnızca renk teması değil: yerleşim kararları da farklı.
-    assert len({c.layout.hero for c in configs}) == 10
+    assert len({c.layout.hero for c in configs}) == 10  # Neon Light, Signature kompozisyonunu kullanır
     assert {c.layout.shell for c in configs} == {"topbar", "sidebar", "terminal", "masthead"}
     assert {c.layout.match_list for c in configs} == {"rows", "cards", "table"}
     assert {c.shape.card for c in configs} == {"flat", "outlined", "elevated", "glass", "notched"}
@@ -58,7 +58,7 @@ async def test_public_design_endpoint(client: Any) -> None:
     r = await client.get("/v1/design")
     assert r.status_code == 200 and "max-age" in r.headers["cache-control"]
     body = r.json()
-    assert body["default"] == "signature-black" and body["order"] == list(ORDER)
+    assert body["default"] == "neon-light" and body["order"] == list(ORDER)
     assert body["designs"]["quantum-terminal"]["config"]["layout"]["shell"] == "terminal"
     assert all(d["version"] == 1 for d in body["designs"].values())
 
@@ -144,7 +144,7 @@ async def test_draft_publish_rollback_and_default(
             await a.put("/admin/v1/design/default", json={"design_key": "yok", "confirm": True})
         ).status_code == 404
         listed = (await a.get("/admin/v1/design")).json()
-        assert listed["default"] == "quantum-terminal" and len(listed["items"]) == 10
+        assert listed["default"] == "quantum-terminal" and len(listed["items"]) == 11
     async with new_client(app) as public:
         body = (await public.get("/v1/design")).json()
         assert body["default"] == "quantum-terminal"
@@ -217,3 +217,21 @@ async def test_low_contrast_design_cannot_be_published_or_restored(
         assert row is not None
         r = await a.post(f"/admin/v1/design/versions/{row[0]}/rollback", json={"confirm": True})
         assert r.status_code == 422 and r.json()["code"] == "contrast_insufficient"
+
+
+def test_neon_light_migration_matches_defaults_and_passes_contrast() -> None:
+    """Geçiş 0014'teki sabit yapılandırma, uygulamadaki varsayılanla aynı ve AA kontrastlı."""
+    import importlib.util
+    from pathlib import Path
+
+    from mi_api.design import contrast
+
+    path = Path(__file__).parents[1] / "migrations" / "versions" / "0014_neon_light.py"
+    spec = importlib.util.spec_from_file_location("m0014", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    expected = DesignConfig.model_validate(DEFAULTS["neon-light"]).model_dump(mode="json")
+    assert mod.CONFIG == expected
+    assert expected["mode"] == "light" and expected["shape"]["shadow"] == "neon"
+    assert contrast.issues(expected["colors"]) == []

@@ -278,7 +278,7 @@ function Editor({ item, onClose }: { item: Item; onClose: () => void }) {
                 <Field label="Köşe yarıçapı"><Range label="Köşe yarıçapı" value={config.shape.radius} min={0} max={28} unit="px" onChange={(v) => upd("shape", "radius", v)} /></Field>
                 <Field label="Kontrol yarıçapı"><Range label="Kontrol yarıçapı" value={config.shape.radius_control} min={0} max={20} unit="px" onChange={(v) => upd("shape", "radius_control", v)} /></Field>
                 <Field label="Kenarlık"><Range label="Kenarlık" value={config.shape.border_width} min={0} max={2} unit="px" onChange={(v) => upd("shape", "border_width", v)} /></Field>
-                <Field label="Gölge"><Select label="Gölge" value={config.shape.shadow} options={["none", "soft", "deep", "glow"] as const} onChange={(v) => upd("shape", "shadow", v)} /></Field>
+                <Field label="Gölge"><Select label="Gölge" value={config.shape.shadow} options={["none", "soft", "deep", "glow", "neon"] as const} onChange={(v) => upd("shape", "shadow", v)} /></Field>
               </section>
               <section>
                 <div className="eyebrow mb-2">Yerleşim</div>

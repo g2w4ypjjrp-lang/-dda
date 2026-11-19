@@ -2,11 +2,11 @@ import { test } from "@playwright/test";
 
 import { expectAccessible } from "./a11y";
 
-// Erişilebilirlik (axe, WCAG 2.1 AA): herkese açık sayfalar varsayılan tasarımda, ayrıca 10 tasarımın
+// Erişilebilirlik (axe, WCAG 2.1 AA): herkese açık sayfalar varsayılan tasarımda, ayrıca 11 tasarımın
 // her biri (renk kontrastı tasarıma bağlıdır). Oturum gerektiren ve yönetim sayfaları ilgili akış
 // testlerinin içinde denetlenir (kayıt hız sınırını aşmamak için).
 const PUBLIC = ["/", "/maclar", "/ligler", "/performans", "/risk", "/sss", "/paketler", "/giris", "/kayit", "/sifremi-unuttum", "/kuponlar", "/sanal", "/yonetim/giris"];
-const DESIGNS = ["signature-black", "swiss-intelligence", "quantum-terminal", "editorial-sports", "ai-atelier", "architectural-luxury", "institutional-blue", "obsidian-glass", "future-sports-lab", "mi-signature"];
+const DESIGNS = ["neon-light", "signature-black", "swiss-intelligence", "quantum-terminal", "editorial-sports", "ai-atelier", "architectural-luxury", "institutional-blue", "obsidian-glass", "future-sports-lab", "mi-signature"];
 
 test("erişilebilirlik: herkese açık sayfalar", async ({ page }) => {
   test.setTimeout(180_000);
@@ -19,7 +19,7 @@ test("erişilebilirlik: herkese açık sayfalar", async ({ page }) => {
   }
 });
 
-test("erişilebilirlik: 10 tasarımın her biri (renk kontrastı dahil)", async ({ page, context }) => {
+test("erişilebilirlik: 11 tasarımın her biri (renk kontrastı dahil)", async ({ page, context }) => {
   test.setTimeout(300_000);
   const fixture = (await (await page.request.get("/v1/football/fixtures?status=finished&limit=1")).json()).items?.[0];
   for (const d of DESIGNS) {

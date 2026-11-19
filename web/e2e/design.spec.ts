@@ -54,7 +54,7 @@ test("Design Studio: taslak → düzenle → yayınla → geçmiş → geri al",
   await page.getByRole("button", { name: "Giriş yap" }).click();
   await page.getByRole("link", { name: "Design Studio" }).click();
   await expect(page.getByRole("heading", { name: "Design Studio" })).toBeVisible();
-  await expect(page.getByRole("article")).toHaveCount(10);
+  await expect(page.getByRole("article")).toHaveCount(11);
 
   // Önizleme: gerçek sayfa iframe içinde, seçilen tasarımla.
   const swiss = page.getByRole("article").filter({ hasText: "Swiss Intelligence" });

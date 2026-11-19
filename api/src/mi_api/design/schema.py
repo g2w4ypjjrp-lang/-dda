@@ -61,7 +61,7 @@ class Shape(Strict):
     radius_control: int = Field(ge=0, le=20)
     border_width: int = Field(ge=0, le=2)
     card: Literal["flat", "outlined", "elevated", "glass", "notched"]
-    shadow: Literal["none", "soft", "deep", "glow"]
+    shadow: Literal["none", "soft", "deep", "glow", "neon"]  # neon: ev/deplasman renkleriyle parıltı
 
 
 class Layout(Strict):

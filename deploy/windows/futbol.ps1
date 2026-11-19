@@ -1,5 +1,5 @@
 ﻿# futbol.canarslan.net.tr yönetim komutları (Yönetici PowerShell):
-#   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | parola EPOSTA [-MfaSifirla] | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
+#   futbol.ps1 durum | yonetici EPOSTA "AD SOYAD" | parola EPOSTA [-MfaSifirla] | paket EPOSTA [PRO|ELITE] | yedek | durdur | baslat | yeniden-baslat | loglar [api|web|tahmin]
 #              tahmin-hazirla [-Sezon 4] [-Deneme 25] [-SadeceEgit] [-Lig AD] | tahmin | model-durum | kaldir -Onay [-VeriyiSil]
 param(
     [Parameter(Position = 0)][string]$Komut = 'durum',
@@ -54,6 +54,13 @@ switch ($Komut) {
         if (-not $A1) { Dur 'kullanım: futbol.ps1 parola EPOSTA [-MfaSifirla]' }
         Ortam-Yukle
         if ($MfaSifirla) { Mi-Admin password-link --email $A1 --reset-mfa } else { Mi-Admin password-link --email $A1 }
+    }
+    'paket' {
+        # Ödemesiz paket (kendi hesabınız, test, destek): kupon oluşturucu PRO/ELITE ister.
+        if (-not $A1) { Dur 'kullanım: futbol.ps1 paket EPOSTA [PRO|ELITE]' }
+        $plan = if ($A2) { $A2.ToUpper() } else { 'ELITE' }
+        if ($plan -notin @('PRO', 'ELITE')) { Dur 'Paket PRO ya da ELITE olmalı' }
+        Ortam-Yukle; Mi-Admin grant-plan --email $A1 --plan $plan --days 3650
     }
     'yedek' { Ortam-Yukle; Mi-Admin backup }
     'durdur' { Surecleri-Durdur; Yaz 'Futbol durduruldu (veritabanı hizmeti açık kalır)' }

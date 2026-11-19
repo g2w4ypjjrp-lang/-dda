@@ -72,6 +72,7 @@ Away = aliased(Team)
 
 class GenerateBody(BaseModel):
     day: date | None = Field(default=None, alias="date")
+    days: int = Field(default=1, ge=1, le=7)  # başlangıç gününden itibaren kaç gün taranır
     profile: Literal["low", "balanced", "high"] = "balanced"
     size: int = Field(default=3, ge=1, le=10)
     competition_ids: list[int] | None = Field(default=None, max_length=50)
@@ -90,9 +91,9 @@ class SaveBody(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-def _bounds(day: date) -> tuple[datetime, datetime]:
+def _bounds(day: date, days: int = 1) -> tuple[datetime, datetime]:
     start = datetime.combine(day, time.min, tzinfo=TR)
-    return start.astimezone(UTC), (start + timedelta(days=1)).astimezone(UTC)
+    return start.astimezone(UTC), (start + timedelta(days=days)).astimezone(UTC)
 
 
 def _info(fx: Fixture, home: Team, away: Team, comp: Competition) -> dict[str, Any]:
@@ -392,7 +393,7 @@ def create_coupons_router() -> APIRouter:
             raise ApiError(422, "unknown_market", "Bilinmeyen piyasa filtresi")
         now = services.clock()
         day = body.day or now.astimezone(TR).date()
-        start, end = _bounds(day)
+        start, end = _bounds(day, body.days)
         candidates = await _candidates(
             db, start=start, end=end, now=now, competition_ids=body.competition_ids
         )
@@ -411,6 +412,7 @@ def create_coupons_router() -> APIRouter:
         )
         draft["params"] = {
             "date": day.isoformat(),
+            "days": body.days,
             "size": body.size,
             "competition_ids": body.competition_ids,
             "markets": body.markets,
@@ -449,7 +451,7 @@ def create_coupons_router() -> APIRouter:
             params={
                 k: v
                 for k, v in body.params.items()
-                if k in ("date", "size", "competition_ids", "markets")
+                if k in ("date", "days", "size", "competition_ids", "markets")
             },
             legs_count=len(legs),
             joint_probability=draft["joint_probability"],

@@ -16,8 +16,10 @@ export function SiteFooter() {
         <div>
           <div className="eyebrow mb-3">Platform</div>
           <ul className="space-y-2 text-[13px] text-text-2">
-            <li><Link href="/maclar" className="hover:text-text">Maç Merkezi</Link></li>
-            <li><Link href="/performans" className="hover:text-text">Model Şeffaflığı</Link></li>
+            <li><Link href="/maclar" className="hover:text-text">Tahminler</Link></li>
+            <li><Link href="/kuponlar" className="hover:text-text">Kupon Oluştur</Link></li>
+            <li><Link href="/sanal" className="hover:text-text">Sanal Portföy</Link></li>
+            <li><Link href="/performans" className="hover:text-text">Başarı Oranı</Link></li>
             <li><Link href="/paketler" className="hover:text-text">Paketler</Link></li>
             <li><Link href="/sss" className="hover:text-text">Sık sorulan sorular</Link></li>
             <li><Link href="/kayit" className="hover:text-text">Hesap oluştur</Link></li>
