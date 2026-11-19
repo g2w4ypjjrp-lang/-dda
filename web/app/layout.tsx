@@ -28,15 +28,19 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#0a0b0d", width: "device-width", initialScale: 1 };
 
-/** Yayımlanmış tasarımlar (API). Ulaşılamazsa Signature Black (globals.css) ile devam edilir. */
+/** Yayımlanmış tasarımlar (API). Ulaşılamazsa yerleşik varsayılan (globals.css) ile devam edilir ve
+ * sunucu günlüğüne yazılır (sessizce eski temaya düşmesin). */
 async function loadDesigns(): Promise<DesignPayload | null> {
+  const api = process.env.MI_API_URL ?? process.env.MI_API_URL_BUILD ?? "http://127.0.0.1:8080";
   try {
-    const res = await fetch(`${process.env.MI_API_URL ?? "http://127.0.0.1:8080"}/v1/design`, {
+    const res = await fetch(`${api}/v1/design`, {
       next: { revalidate: 5 },
       signal: AbortSignal.timeout(2500),
     });
+    if (!res.ok) console.error(`tasarımlar alınamadı: ${api}/v1/design → ${res.status}`);
     return res.ok ? ((await res.json()) as DesignPayload) : null;
-  } catch {
+  } catch (e) {
+    console.error(`tasarımlar alınamadı (API: ${api})`, e instanceof Error ? e.message : e);
     return null;
   }
 }

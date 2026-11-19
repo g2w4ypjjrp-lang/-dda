@@ -38,3 +38,17 @@ pencerenin ertesi günün maçlarını kapsaması, `days` üst sınırı (8 → 
 
 - `futbol.ps1 paket` komutu eklendi; kılavuz tablosu güncellendi.
 - E2E testleri yeni menü adlarına ve 11 tasarıma göre güncellendi.
+
+## 5. Sunucuda tema geçmemişti (düzeltildi)
+
+Canlı sitede yeni menü gelmişti ama sayfa `data-design="signature-black"` ile çıkıyordu. Neden: Windows
+başlatıcısı (`calistir.ps1`) web sürecine `MI_API_URL` vermiyordu. Bu yüzden sunucu tarafındaki tasarım
+isteği varsayılan `127.0.0.1:8080` adresine gidiyor, ulaşamıyor ve yerleşik temaya sessizce düşüyordu.
+Bu durum ilk kurulumdan beri vardı; yerleşik tema Signature Black olduğu için fark edilmemişti.
+
+Düzeltmeler:
+- `calistir.ps1` web sürecine `MI_API_URL=http://127.0.0.1:8081` verir.
+- `next.config.ts`, derleme anındaki adresi (`MI_API_URL_BUILD`) yedek olarak koda gömer.
+- `layout.tsx`, tasarımlar alınamazsa bunu günlüğe yazar.
+
+Doğrulama: Paket `MI_API_URL` olmadan çalıştırıldı; sayfa `data-design="neon-light"` ile geldi.

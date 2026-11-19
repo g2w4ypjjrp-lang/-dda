@@ -12,6 +12,9 @@ if ($Hizmet -eq 'api') {
 } else {
     $env:PORT = "$WebPort"; $env:HOSTNAME = '127.0.0.1'; $env:NODE_ENV = 'production'
     $env:NEXT_TELEMETRY_DISABLED = '1'
+    # Sunucu tarafı istekler (ör. yayımlanmış tasarımlar) API'yi burada bulur; yoksa 8080 denenir,
+    # ulaşılamaz ve site yerleşik varsayılan temaya düşer.
+    $env:MI_API_URL = "http://127.0.0.1:$ApiPort"
     $exe = (Get-Command node.exe -ErrorAction Stop).Source
     $arg = @('--max-old-space-size=192', ('"' + (Join-Path $WebDir 'server.js') + '"'))
 }

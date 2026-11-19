@@ -25,6 +25,8 @@ const config: NextConfig = {
   // Görsel optimizasyonu kullanılmıyor: uç kapalı, yerel "sharp" bağımlılığı gerekmez
   // (Windows hafif kurulumu için önceden derlenmiş paket platformdan bağımsız kalır).
   images: { unoptimized: true },
+  // Sunucu tarafı istekler için derleme anındaki API adresi (çalışırken MI_API_URL verilmezse).
+  env: { MI_API_URL_BUILD: API },
   reactStrictMode: true,
   async rewrites() {
     return [
