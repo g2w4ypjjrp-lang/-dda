@@ -357,6 +357,21 @@ def best_pick(c: Candidate, profile: Profile, markets: frozenset[str] | None) ->
     return best
 
 
+def strongest_pick(c: Candidate, codes: frozenset[str]) -> Pick | None:
+    """Maçın izin verilen piyasalardaki en olası seçimi (kesin hesap, aynı ortak dağılım)."""
+    best: Pick | None = None
+    for m in _DEFS:
+        if m.half or m.code not in codes:
+            continue
+        try:
+            p = fixture_joint([Leg(c.fixture_id, m, c.probabilities)])
+        except CouponError:
+            continue
+        if best is None or p > best.probability:
+            best = Pick(c, m, p)
+    return best
+
+
 def build(
     candidates: Sequence[Candidate],
     *,

@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { DataStatusBanner, LiveCount, MatchList, groupByCompetition } from "@/components/match";
-import { Card, Empty, ErrorState, Skeleton, TeamCrest, cx } from "@/components/ui";
+import { Button, Card, Empty, ErrorState, Notice, Skeleton, TeamCrest, cx } from "@/components/ui";
+import { useUpcoming } from "@/components/upcoming";
 import { api } from "@/lib/api";
 import { dayLabel, shiftDay, trToday } from "@/lib/format";
 import type { FixtureList, Prediction } from "@/lib/types";
@@ -34,6 +35,8 @@ export default function MatchCenterPage() {
     queryFn: () => api<{ items: Prediction[] }>(`/v1/predictions?date=${day}`),
   });
   const byFixture = new Map((predictions.data?.items ?? []).map((p) => [p.fixture_id, p]));
+  const upcoming = useUpcoming();
+  const nextDay = upcoming.data?.next_match_day;
 
   const all = fixtures.data?.items ?? [];
   const visible = all.filter((f) => {
@@ -46,6 +49,8 @@ export default function MatchCenterPage() {
   const groups = groupByCompetition(visible);
   const competitions = groupByCompetition(all);
   const days = [-2, -1, 0, 1, 2, 3, 4].map((d) => shiftDay(today, d));
+  // Bugün başlamamış maç kalmadıysa sıradaki maç gününe tek tıkla geçilir.
+  const noneLeftToday = day === today && fixtures.isSuccess && !all.some((f) => ["scheduled", "tbd", "live", "halftime"].includes(f.status));
 
   return (
     <div className="py-8">
@@ -83,6 +88,17 @@ export default function MatchCenterPage() {
           <ChevronRight className="size-4" aria-hidden />
         </button>
       </div>
+
+      {noneLeftToday && nextDay && nextDay !== today && (
+        <div className="mt-4">
+          <Notice tone="teal" title="Bugün başlamamış maç kalmadı">
+            <span className="flex flex-wrap items-center gap-3">
+              Sıradaki maç günü {dayLabel(nextDay)}; tahminleri hazır.
+              <Button size="sm" variant="secondary" onClick={() => setDay(nextDay)}>{dayLabel(nextDay)} maçlarını göster</Button>
+            </span>
+          </Notice>
+        </div>
+      )}
 
       {/* Filtreler */}
       <div className="mt-4 flex flex-wrap items-center gap-2">

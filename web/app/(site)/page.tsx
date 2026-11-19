@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 
 import { HomeHero } from "@/components/heroes";
+import { UpcomingPicks } from "@/components/upcoming";
 import { DataStatusBanner, MatchList } from "@/components/match";
 import { Badge, Card, CardHeader, Empty, ErrorState, ProbBar, Skeleton, Stat } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -56,6 +57,8 @@ export default function HomePage() {
       <HomeHero d={{ day, list: fixtures.data, items, preds, published, perf: perf.data, loading: fixtures.isLoading || predictions.isLoading }} />
 
       <div className="mb-6"><DataStatusBanner status={fixtures.data} items={fixtures.data?.items} /></div>
+
+      <UpcomingPicks />
 
       {/* Günün maçları + AI */}
       <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">

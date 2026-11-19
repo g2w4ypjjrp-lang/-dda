@@ -307,3 +307,29 @@ async def test_first_half_preview_save_and_settle(
     assert legs_now == {1: "won", 2: "void"}  # İY skoru hiç gelmedi: geçersiz
     status = sql.execute("SELECT status FROM coupons WHERE id=%s", (coupon["id"],)).fetchone()[0]
     assert status == "won"
+
+
+async def test_upcoming_strongest_picks_respect_plan(
+    app: Any, sql: psycopg.Connection[Any], seeded: dict[str, Any], clock: Clock
+) -> None:
+    """Yaklaşan maçlar + en olası seçim; anonimde yalnızca 1X2'den türeyen piyasalar."""
+    async with new_client(app) as c:
+        r = await c.get("/v1/predictions/upcoming?days=2")
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["today"] == "2026-11-20" and d["next_match_day"] == "2026-11-20"
+        assert d["markets"] == ["1x2", "double_chance"] and d["total"] == 4
+        for item in d["items"]:
+            assert item["pick"]["market"] in ("1x2", "double_chance")
+            # En olası seçim, favoriden (1X2) daha düşük olamaz: çifte şans onu kapsar.
+            assert item["pick"]["probability"] >= item["favourite"]["probability"] - 1e-9
+            assert set(item["one_x_two"]) == {"home", "draw", "away"} and item["home"]
+        await member(c, sql, "yakin@ornek.com")
+        d = (await c.get("/v1/predictions/upcoming?days=2")).json()
+        assert set(d["markets"]) == {"1x2", "double_chance", "total", "btts"}
+        assert {i["pick"]["market"] for i in d["items"]} <= set(d["markets"])
+    # Başlamış maç listelenmez.
+    clock.now = NOW + timedelta(hours=3, minutes=30)
+    async with new_client(app) as c:
+        assert (await c.get("/v1/predictions/upcoming")).json()["total"] == 3
+        assert (await c.get("/v1/predictions/upcoming?days=9")).status_code == 422

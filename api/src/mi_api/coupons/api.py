@@ -32,6 +32,7 @@ from mi_api.billing.plans import access_for, consume, plan_required
 from mi_api.context import (
     DbDep,
     MetaDep,
+    OptionalUserDep,
     Principal,
     ServicesDep,
     UserDep,
@@ -48,6 +49,7 @@ from mi_api.coupons.engine import (
     fixture_joint,
     market,
     risk_text,
+    strongest_pick,
 )
 from mi_api.coupons.models import Coupon, CouponLeg
 from mi_api.engage.notify import notify
@@ -103,7 +105,9 @@ def _info(fx: Fixture, home: Team, away: Team, comp: Competition) -> dict[str, A
         "kickoff_local": fx.kickoff_at.astimezone(TR).isoformat(),
         "home": home.name,
         "away": away.name,
-        "competition": {"id": comp.id, "name": comp.name},
+        "home_logo": home.logo_url,
+        "away_logo": away.logo_url,
+        "competition": {"id": comp.id, "name": comp.name, "logo_url": comp.logo_url},
     }
 
 
@@ -364,8 +368,69 @@ def _check_plan(access: Any, body: SaveBody) -> None:
         )
 
 
+# 1X2'den türetilen piyasalar herkese açık (aynı bilgiyi taşır); diğerleri paket hakkıyla.
+BASIC_CODES = frozenset({"1x2", "double_chance"})
+MARKET_PLAN_CODES = BASIC_CODES | {"total", "btts"}
+FAVOURITE = {"home": "1", "draw": "X", "away": "2"}
+
+
+def _upcoming_item(c: Candidate, codes: frozenset[str]) -> dict[str, Any] | None:
+    pick = strongest_pick(c, codes)
+    x = c.probabilities.get("1x2") or {}
+    if pick is None or not x:
+        return None
+    fav = max(("home", "draw", "away"), key=lambda k: float(x.get(k, 0.0)))
+    return {
+        **c.info,
+        "prediction_id": c.prediction_id,
+        "reliability": c.reliability,
+        "one_x_two": {k: float(x[k]) for k in ("home", "draw", "away")},
+        "favourite": {"pick": FAVOURITE[fav], "probability": float(x[fav])},
+        "pick": {
+            "market": pick.market.code,
+            "pick": pick.market.pick,
+            "label": pick.market.label,
+            "probability": pick.probability,
+        },
+    }
+
+
 def create_coupons_router() -> APIRouter:
     router = APIRouter(tags=["coupons"])
+
+    @router.get("/v1/predictions/upcoming")
+    async def upcoming(
+        db: DbDep,
+        services: ServicesDep,
+        user: OptionalUserDep,
+        days: Annotated[int, Query(ge=1, le=7)] = 3,
+        limit: Annotated[int, Query(ge=1, le=60)] = 24,
+    ) -> dict[str, Any]:
+        """Henüz başlamamış maçların yayımlanmış tahminleri ve her maçın en olası seçimi.
+
+        Bugün başlamamış maç kalmadıysa sıradaki maç günleri gösterilir ("bugün maç yok" boş sayfa
+        yerine). Seçim yalnızca paketin açtığı piyasalardan yapılır (kontrol sunucuda)."""
+        now = services.clock()
+        start = datetime.combine(now.astimezone(TR).date(), time.min, tzinfo=TR).astimezone(UTC)
+        candidates = await _candidates(
+            db, start=start, end=start + timedelta(days=days), now=now, competition_ids=None
+        )
+        access = await access_for(db, user.user.id if user else None, now)
+        codes = MARKET_PLAN_CODES if access.allows("predictions.markets") else BASIC_CODES
+        items = [i for c in candidates if (i := _upcoming_item(c, codes)) is not None]
+        first = min((c.info["kickoff_at"] for c in candidates), default=None)
+        return {
+            "days": days,
+            "today": now.astimezone(TR).date().isoformat(),
+            "next_match_day": datetime.fromisoformat(first).astimezone(TR).date().isoformat()
+            if first
+            else None,
+            "markets": sorted(codes),
+            "plan": access.plan,
+            "items": items[:limit],
+            "total": len(items),
+            "disclaimer": DISCLAIMER,
+        }
 
     @router.post("/v1/coupons/generate")
     async def generate(

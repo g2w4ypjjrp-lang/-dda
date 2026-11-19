@@ -36,6 +36,82 @@ export interface DesignPayload {
   designs: Record<string, { version: number; config: DesignConfig }>;
 }
 
+/** Yerleşik varsayılan: API'ye ulaşılamazsa da site Neon Light ile açılır (geçiş 0014 ile aynı). */
+export const FALLBACK_KEY = "neon-light";
+export const FALLBACK_DESIGNS: DesignPayload = {
+  default: FALLBACK_KEY,
+  order: [FALLBACK_KEY],
+  designs: { [FALLBACK_KEY]: { version: 1, config: {
+    "schema_version": 1,
+    "name": "Neon Light",
+    "tagline": "Açık zemin, neon pembe ve camgöbeği parıltı; sade ve okunaklı.",
+    "mode": "light",
+    "colors": {
+      "bg": "#f5f6fc",
+      "bg_elevated": "#f1f3fb",
+      "surface": "#ffffff",
+      "surface_2": "#f4f5fc",
+      "surface_3": "#e6e9f7",
+      "line": "#1a1f4a17",
+      "line_strong": "#1a1f4a2e",
+      "text": "#0c0f2e",
+      "text_2": "#33385e",
+      "muted": "#575c80",
+      "accent": "#a00d8e",
+      "accent_text": "#ffffff",
+      "data": "#0058b8",
+      "positive": "#006a46",
+      "warning": "#8a5200",
+      "negative": "#b01237",
+      "home": "#00b8f0",
+      "draw": "#9aa0bf",
+      "away": "#ff2bd6"
+    },
+    "typography": {
+      "font": "inter",
+      "heading_font": "space-grotesk",
+      "mono_font": "jetbrains-mono",
+      "base_size": 15,
+      "scale": 1.25,
+      "heading_weight": 700,
+      "heading_tracking": -0.02
+    },
+    "shape": {
+      "radius": 18,
+      "radius_control": 12,
+      "border_width": 1,
+      "card": "elevated",
+      "shadow": "neon"
+    },
+    "layout": {
+      "shell": "topbar",
+      "sidebar_width": 248,
+      "page_width": 1200,
+      "gap": 24,
+      "grid_columns": 12,
+      "density": "comfortable",
+      "hero": "signature",
+      "match_list": "cards",
+      "menu": "pill",
+      "logo": "monogram"
+    },
+    "components": {
+      "button": "solid",
+      "table": "lined",
+      "chart": "area",
+      "chart_stroke": 2.0,
+      "chart_grid": true
+    },
+    "motion": {
+      "level": "standard",
+      "duration_ms": 360
+    },
+    "mobile": {
+      "nav": "tabs"
+    }
+  } as DesignConfig } },
+};
+
 export const DESIGN_COOKIE = "mi_design";
 export const PREVIEW_KEY = "preview";
 
@@ -152,8 +228,11 @@ export function designCss(key: string, cfg: DesignConfig): string {
 
 /** <html> öznitelikleri: CSS varyantları bunlara bağlanır. */
 export function designAttrs(key: string, cfg: DesignConfig | null): Record<string, string> {
-  if (!cfg) return { "data-design": "signature-black" };
-  const out: Record<string, string> = { "data-design": KEY.test(key) ? key : "signature-black" };
+  if (!cfg) {
+    const fb = FALLBACK_DESIGNS.designs[FALLBACK_KEY]?.config;
+    return fb ? designAttrs(FALLBACK_KEY, fb) : { "data-design": FALLBACK_KEY };
+  }
+  const out: Record<string, string> = { "data-design": KEY.test(key) ? key : FALLBACK_KEY };
   const add = (name: string, v: string | null) => { if (v) out[name] = v; };
   add("data-mode", pick(cfg.mode, ENUMS.mode));
   add("data-shell", pick(cfg.layout?.shell, ENUMS.shell));
@@ -175,7 +254,7 @@ export function allDesignsCss(payload: DesignPayload | null): string {
 }
 
 export function resolveKey(payload: DesignPayload | null, requested: string | undefined | null): string {
-  if (!payload) return "signature-black";
+  if (!payload) return FALLBACK_KEY;
   if (requested && payload.designs[requested]) return requested;
-  return payload.designs[payload.default] ? payload.default : payload.order[0] ?? "signature-black";
+  return payload.designs[payload.default] ? payload.default : payload.order[0] ?? FALLBACK_KEY;
 }

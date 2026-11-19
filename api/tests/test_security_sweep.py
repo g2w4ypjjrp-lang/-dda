@@ -56,7 +56,11 @@ PUBLIC = {
     ("GET", "/ready"),
 }
 # Oturum isteğe bağlı: anonim de çalışır, paket hakları backend'de uygulanır.
-OPTIONAL_USER = {("GET", "/v1/predictions"), ("GET", "/v1/predictions/fixtures/{fixture_id}")}
+OPTIONAL_USER = {
+    ("GET", "/v1/predictions"),
+    ("GET", "/v1/predictions/fixtures/{fixture_id}"),
+    ("GET", "/v1/predictions/upcoming"),
+}
 # İzin gerektirmeyen ama durum değiştiren yönetim rotaları (yetki içeride denetlenir).
 ADMIN_UNSAFE_WITHOUT_PERMISSION = {
     ("POST", "/admin/v1/auth/reauth"),  # kendi oturumunu yeniden doğrular

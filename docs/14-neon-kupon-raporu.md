@@ -52,3 +52,36 @@ Düzeltmeler:
 - `layout.tsx`, tasarımlar alınamazsa bunu günlüğe yazar.
 
 Doğrulama: Paket `MI_API_URL` olmadan çalıştırıldı; sayfa `data-design="neon-light"` ile geldi.
+
+## 6. "Bugüne maç vermiyor", "oranlar küçük", "site pasif" (2026-11-19)
+
+Canlı veriye bakıldı (19 Kasım):
+- Bugünkü 6 maçın hepsi Brezilya Serie A'daydı, gece oynandı ve bitti.
+- Sıradaki maçlar: yarın 6 maç (3 tahmin yayımlandı), cumartesi 44 maç (40 yayımlandı), pazar 23 maç (22 yayımlandı).
+- Ziyaretçi FREE pakette yalnızca 1X2 görüyordu. Futbolda 1X2 olasılıkları çoğunlukla %25–%60 arasındadır.
+
+Yapılanlar:
+
+- **`GET /v1/predictions/upcoming?days=1..7&limit=1..60`** (oturum isteğe bağlı):
+  - Başlamamış maçların son yayımlanmış tahminlerini döndürür.
+  - Her maç için **en olası seçimi** hesaplar. Hesap, aynı ortak skor dağılımından kesin olarak yapılır (`engine.strongest_pick`).
+  - Seçim yalnızca paketin açtığı piyasalardan yapılır:
+    - Herkese: 1X2 ve ondan türeyen çifte şans.
+    - `predictions.markets` hakkıyla: ayrıca alt/üst (1,5–3,5) ve karşılıklı gol.
+  - `next_match_day` alanı sıradaki maç gününü verir.
+  - Güvenlik taramasında `OPTIONAL_USER` listesine eklendi.
+- **Ana sayfa, "Sıradaki maçlar" bölümü:**
+  - Kartlarda en olası seçim büyük yazıyla gösterilir (ör. "%77 · Çifte şans: 1X"); altında 1X2 çubuğu, güvenilirlik ve canlı geri sayım ("2 sa 59 dk sonra") bulunur.
+  - Sıralama: "En yakın" ve "En güçlü".
+  - Liste dakikada bir kendiliğinden yenilenir.
+  - Bugün başlamamış maç kalmadıysa sıradaki maç günü yazılır.
+- **Tahminler sayfası:** Bugün başlamamış maç kalmadıysa "Sıradaki maç günü: …" uyarısı ve tek tıkla o güne geçme düğmesi gösterilir.
+- **Dürüstlük:** Yüzdeler modelin olasılığıdır, bahis oranı değildir; sayfada da yazılıdır. Oran verisi M-G2 onayına bağlıdır. Eşikler gevşetilmedi.
+- **Tema garantisi:** API'ye ulaşılamazsa önce son başarılı yanıt, o da yoksa web'e gömülü Neon Light kullanılır (`FALLBACK_DESIGNS`, geçiş 0014 ile aynı). Zaman aşımı 8 sn. Tarayıcı çubuğu rengi açık temaya göre ayarlandı.
+
+Testler: `test_coupons_api.py::test_upcoming_strongest_picks_respect_plan`. Bu test şunları doğrular:
+- Anonim kullanıcıda yalnızca 1X2 ve çifte şans kullanılır.
+- Ücretli pakette alt/üst ve karşılıklı gol de eklenir.
+- En olası seçim, favorinin olasılığından düşük olamaz.
+- Başlamış maç listelenmez.
+- `days` üst sınırı aşılınca istek reddedilir.

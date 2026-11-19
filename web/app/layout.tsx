@@ -14,7 +14,7 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./globals.css";
 import { DesignProvider } from "@/components/design";
-import { DESIGN_COOKIE, allDesignsCss, designAttrs, resolveKey, type DesignPayload } from "@/lib/design";
+import { DESIGN_COOKIE, FALLBACK_DESIGNS, allDesignsCss, designAttrs, resolveKey, type DesignPayload } from "@/lib/design";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -26,23 +26,29 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
-export const viewport: Viewport = { themeColor: "#0a0b0d", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#f5f6fc", width: "device-width", initialScale: 1 };
 
-/** Yayımlanmış tasarımlar (API). Ulaşılamazsa yerleşik varsayılan (globals.css) ile devam edilir ve
- * sunucu günlüğüne yazılır (sessizce eski temaya düşmesin). */
-async function loadDesigns(): Promise<DesignPayload | null> {
+/** Son başarılı yanıt: API bir an yavaş/kapalıysa tema geri dönmesin. */
+let lastGood: DesignPayload | null = null;
+
+/** Yayımlanmış tasarımlar (API). Ulaşılamazsa son başarılı yanıt, o da yoksa yerleşik Neon Light
+ * kullanılır ve sunucu günlüğüne yazılır (sessizce başka temaya düşmesin). */
+async function loadDesigns(): Promise<DesignPayload> {
   const api = process.env.MI_API_URL ?? process.env.MI_API_URL_BUILD ?? "http://127.0.0.1:8080";
   try {
     const res = await fetch(`${api}/v1/design`, {
-      next: { revalidate: 5 },
-      signal: AbortSignal.timeout(2500),
+      next: { revalidate: 30 },
+      signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) console.error(`tasarımlar alınamadı: ${api}/v1/design → ${res.status}`);
-    return res.ok ? ((await res.json()) as DesignPayload) : null;
+    if (res.ok) {
+      lastGood = (await res.json()) as DesignPayload;
+      return lastGood;
+    }
+    console.error(`tasarımlar alınamadı: ${api}/v1/design → ${res.status}`);
   } catch (e) {
     console.error(`tasarımlar alınamadı (API: ${api})`, e instanceof Error ? e.message : e);
-    return null;
   }
+  return lastGood ?? FALLBACK_DESIGNS;
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
