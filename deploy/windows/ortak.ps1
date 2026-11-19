@@ -66,8 +66,30 @@ function Sql-Dosya([string]$kullanici, [string]$parola, [string]$sql) {
     $f = Join-Path $env:TEMP ("futbol-" + [Guid]::NewGuid().ToString('N') + '.sql')
     [IO.File]::WriteAllText($f, $sql, (New-Object Text.UTF8Encoding($false)))
     $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'; $env:PGPASSWORD = $parola
+    $eskiKonsol = Utf8-Konsol
     try { & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U $kullanici -d futbol -v ON_ERROR_STOP=1 -q -f $f }
-    finally { Remove-Item $f -Force -ErrorAction SilentlyContinue; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue; $env:PGCLIENTENCODING = $eskiEnc }
+    finally {
+        Remove-Item $f -Force -ErrorAction SilentlyContinue; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+        $env:PGCLIENTENCODING = $eskiEnc; Konsol-Geri $eskiKonsol
+    }
+}
+
+function Sql-Satirlar([string]$sql) {
+    # Tek değerli sorgu sonuçları (futbol kullanıcısıyla); Türkçe/aksanlı adlar bozulmadan.
+    $eskiEnc = $env:PGCLIENTENCODING; $env:PGCLIENTENCODING = 'UTF8'
+    $env:PGPASSWORD = Env-Deger 'FUTBOL_DB_PASSWORD'
+    $eskiKonsol = Utf8-Konsol
+    try { & (Join-Path $PgBin 'psql.exe') -h 127.0.0.1 -p $PgPort -U futbol -d futbol -tAc $sql }
+    finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue; $env:PGCLIENTENCODING = $eskiEnc; Konsol-Geri $eskiKonsol }
+}
+
+function Utf8-Konsol {
+    # psql UTF-8 yazar; konsol kod sayfası farklıysa "S├®rie" gibi bozulur. Eski değer geri verilir.
+    try { $eski = [Console]::OutputEncoding; [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false); return $eski } catch { return $null }
+}
+
+function Konsol-Geri($eski) {
+    if ($eski) { try { [Console]::OutputEncoding = $eski } catch {} }
 }
 
 function Uv-Ortam {
@@ -87,6 +109,8 @@ function Env-Ekle([string]$anahtar, [string]$deger) {
 function Dusuk-Oncelikle([string]$exe, [string[]]$arg) {
     # Uzun işler (eğitim) botu yormasın: "normalin altı" öncelik, bitene kadar bekler.
     $p = Start-Process -FilePath $exe -ArgumentList $arg -WorkingDirectory $Kok -NoNewWindow -PassThru
+    # PowerShell hatası: tanıtıcı önceden alınmazsa ExitCode boş döner (başarılı iş "başarısız" görünür).
+    $null = $p.Handle
     try { $p.PriorityClass = 'BelowNormal' } catch {}
     $p.WaitForExit()
     return $p.ExitCode

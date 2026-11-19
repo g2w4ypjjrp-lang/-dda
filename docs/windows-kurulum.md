@@ -142,6 +142,7 @@ Adımlar:
 İzleme ve tekrar:
 - Günlük: `futbol.ps1 loglar tahmin`
 - Tahminleri hemen yeniden yazdırmak: `futbol.ps1 tahmin`
+- Lig başına model ve tahmin özeti: `futbol.ps1 model-durum`. Komut yalnızca okur; şampiyon ve aday modelleri, test metriklerini, yaklaşan maçlardan kaçının yayımlandığını ve çekimser kalma nedenlerini gösterir.
 - Daha uzun geçmişle eğitmek (örneğin 6 sezon): `futbol.ps1 tahmin-hazirla -Sezon 6`
 
 ## Güncelleme (yeni paket geldiğinde)
